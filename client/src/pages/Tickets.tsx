@@ -30,7 +30,7 @@ export default function Tickets() {
   const [submitted, setSubmitted] = useState(false);
   const [form, setForm] = useState({ title: "", description: "", category: "maintenance" as "maintenance" | "security" | "cleaning" | "billing" | "other", priority: "medium" as "low" | "medium" | "high" });
   const tickets = data ?? demoTickets;
-  const isStaff = overview?.scope.isStaff ?? false;
+  const isStaff = overview?.scope?.isStaff ?? false;
   const filtered = filter === "all" ? tickets : tickets.filter(ticket => ticket.status === filter);
 
   return (

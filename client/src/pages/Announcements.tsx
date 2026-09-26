@@ -29,7 +29,7 @@ export default function Announcements() {
   const [filter, setFilter] = useState("all");
   const [form, setForm] = useState({ title: "", summary: "", body: "", category: "general" as "maintenance" | "finance" | "event" | "general", isPinned: false });
   const announcements = data ?? demoAnnouncements;
-  const isStaff = overview?.scope.isStaff ?? false;
+  const isStaff = overview?.scope?.isStaff ?? false;
   const filtered = filter === "all" ? announcements : announcements.filter(item => item.category === filter);
 
   return (

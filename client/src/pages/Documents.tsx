@@ -28,7 +28,7 @@ export default function Documents() {
   const [search, setSearch] = useState("");
   const [form, setForm] = useState({ title: "", description: "", category: "rules" as "governance" | "rules" | "finance" | "meeting" | "other", fileUrl: "", fileKey: "" });
   const documents = data ?? demoDocuments;
-  const isStaff = overview?.scope.isStaff ?? false;
+  const isStaff = overview?.scope?.isStaff ?? false;
   const filtered = documents.filter(document => (filter === "all" || document.category === filter) && document.title.toLowerCase().includes(search.toLowerCase()));
 
   return (

@@ -35,7 +35,16 @@ async function requireStaff(user: { id: number; role: string }) {
 export const condoRouter = router({
   dashboard: router({
     overview: protectedProcedure.query(async ({ ctx }) => {
-      const scope = await resolveScope(ctx.user);
+      const scope = await getUserScope(ctx.user.id, ctx.user.role === "admin");
+      if (!scope) {
+        return {
+          scope: null,
+          announcements: [],
+          tickets: [],
+          documents: [],
+          counts: { announcements: 0, tickets: 0, openTickets: 0, documents: 0 },
+        };
+      }
       const staff = isStaff(scope, ctx.user.role);
       const [announcementRows, ticketRows, documentRows] = await Promise.all([
         getAnnouncements(scope.condominium.id),

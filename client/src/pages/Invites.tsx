@@ -16,7 +16,7 @@ function formatDate(value: Date | string) {
 export default function Invites() {
   const { isAuthenticated } = useAuth();
   const { data: overview } = trpc.condo.dashboard.overview.useQuery(undefined, { enabled: isAuthenticated });
-  const isStaff = overview?.scope.isStaff ?? false;
+  const isStaff = overview?.scope?.isStaff ?? false;
   const { data: invites, isLoading } = trpc.invitations.list.useQuery(undefined, { enabled: isAuthenticated && isStaff });
   const utils = trpc.useUtils();
   const create = trpc.invitations.create.useMutation({ onSuccess: async result => { await utils.invitations.list.invalidate(); setCreated(result); setShowForm(false); } });

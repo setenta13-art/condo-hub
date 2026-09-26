@@ -74,8 +74,8 @@ export default function Home() {
   const tickets = overview?.tickets ?? demoTickets;
   const documents = overview?.documents ?? demoDocuments;
   const counts = overview?.counts ?? { announcements: 12, tickets: 8, openTickets: 3, documents: 24 };
-  const condominium = overview?.scope.condominium;
-  const organization = overview?.scope.organization;
+  const condominium = overview?.scope?.condominium;
+  const organization = overview?.scope?.organization;
 
   return (
     <div className="mx-auto max-w-[1360px] space-y-7">
@@ -111,6 +111,13 @@ export default function Home() {
         </div>
       )}
 
+      {isAuthenticated && overview && !overview.scope && (
+        <div className="flex items-center gap-3 rounded-2xl border border-[#f0dca8] bg-[#fff8e7] px-4 py-3 text-sm text-[#8c651f] sm:px-5">
+          <Sparkles className="h-4 w-4 shrink-0" />
+          <span><strong>Conta ainda sem vínculo:</strong> você está vendo uma prévia do CondoHub. Aceite um convite ou peça à administração para vincular seu usuário a um condomínio.</span>
+        </div>
+      )}
+
       <section className="relative overflow-hidden rounded-[26px] bg-[#152e3b] px-6 py-7 text-white shadow-[0_18px_50px_-24px_rgba(20,44,57,0.65)] sm:px-8 sm:py-8">
         <div className="absolute -right-14 -top-20 h-64 w-64 rounded-full border-[28px] border-[#b5dfd3]/10" />
         <div className="absolute -bottom-28 right-28 h-64 w-64 rounded-full border-[1px] border-[#b5dfd3]/10" />
@@ -119,10 +126,10 @@ export default function Home() {
             <div className="mb-5 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-[#b5dfd3]">
               <span className="rounded-full bg-[#b5dfd3]/15 px-2.5 py-1">Condomínio ativo</span>
               <span className="h-1 w-1 rounded-full bg-[#b5dfd3]/60" />
-              <span>{organization?.name ?? "Administradora Horizonte"}</span>
+              <span>{organization?.name ?? "Via Ernesto Administradora"}</span>
             </div>
-            <h2 className="max-w-xl text-2xl font-extrabold tracking-[-0.04em] sm:text-3xl">{condominium?.name ?? "Residencial Jardim do Lago"}</h2>
-            <p className="mt-2 text-sm text-white/65">{condominium?.city ?? "Belo Horizonte"} · 128 unidades · comunicação oficial</p>
+            <h2 className="max-w-xl text-2xl font-extrabold tracking-[-0.04em] sm:text-3xl">{condominium?.name ?? "Condomínio Residencial Buena Vista"}</h2>
+            <p className="mt-2 text-sm text-white/65">{condominium?.city ?? "São Paulo"} · xxxx unidades · comunicação oficial</p>
           </div>
           <div className="grid grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-4 lg:min-w-[450px]">
             <div><p className="text-2xl font-extrabold">98%</p><p className="mt-1 text-xs text-white/55">comunicados lidos</p></div>
