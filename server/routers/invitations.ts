@@ -1,8 +1,8 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { condominiums, invitations, memberships, organizations } from "../../drizzle/schema";
+import { blocks, condominiums, invitations, memberships, organizations, units } from "../../drizzle/schema";
 import { getDb, getUserScope } from "../db";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 
@@ -68,6 +68,17 @@ export const invitationRouter = router({
     }));
   }),
 
+  options: protectedProcedure.query(async ({ ctx }) => {
+    const scope = await getStaffScope(ctx.user);
+    const db = await getDb();
+    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Banco indisponível." });
+    const [blockRows, unitRows] = await Promise.all([
+      db.select().from(blocks).where(eq(blocks.condominiumId, scope.condominium.id)).orderBy(asc(blocks.name)),
+      db.select().from(units).where(and(eq(units.condominiumId, scope.condominium.id), eq(units.status, "active"))).orderBy(asc(units.identifier)),
+    ]);
+    return { blocks: blockRows, units: unitRows };
+  }),
+
   create: protectedProcedure
     .input(
       z.object({
@@ -83,6 +94,30 @@ export const invitationRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Banco indisponível." });
 
+      let canonicalBlock = input.block?.trim() || null;
+      const requestedUnit = input.unit?.trim() || null;
+      if (input.role === "resident" && !requestedUnit) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Informe a unidade do morador para concluir o vínculo." });
+      }
+      if (canonicalBlock) {
+        const block = await db.select().from(blocks).where(and(eq(blocks.condominiumId, scope.condominium.id), eq(blocks.name, canonicalBlock))).limit(1);
+        if (!block[0]) throw new TRPCError({ code: "BAD_REQUEST", message: "Selecione um bloco cadastrado no condomínio." });
+        canonicalBlock = block[0].name;
+      }
+      if (requestedUnit) {
+        const unitRows = await db.select().from(units).where(and(eq(units.condominiumId, scope.condominium.id), eq(units.identifier, requestedUnit), eq(units.status, "active")));
+        if (!unitRows.length) throw new TRPCError({ code: "BAD_REQUEST", message: "Selecione uma unidade cadastrada e ativa." });
+        if (canonicalBlock) {
+          const block = await db.select().from(blocks).where(and(eq(blocks.condominiumId, scope.condominium.id), eq(blocks.name, canonicalBlock))).limit(1);
+          if (!block[0] || !unitRows.some(unit => unit.blockId === block[0].id)) throw new TRPCError({ code: "BAD_REQUEST", message: "A unidade não pertence ao bloco selecionado." });
+        } else if (unitRows.length === 1 && unitRows[0].blockId) {
+          const block = await db.select().from(blocks).where(eq(blocks.id, unitRows[0].blockId)).limit(1);
+          canonicalBlock = block[0]?.name ?? null;
+        } else if (unitRows.length > 1) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Informe o bloco para identificar esta unidade." });
+        }
+      }
+
       const token = nanoid(32);
       const expiresAt = new Date(Date.now() + input.expiresInDays * 24 * 60 * 60 * 1000);
       const result = await db.insert(invitations).values({
@@ -91,8 +126,8 @@ export const invitationRouter = router({
         email: input.email || null,
         token,
         role: input.role,
-        unit: input.unit || null,
-        block: input.block || null,
+        unit: requestedUnit,
+        block: canonicalBlock,
         expiresAt,
       });
 
@@ -134,28 +169,34 @@ export const invitationRouter = router({
         await db.update(invitations).set({ status: "expired" }).where(eq(invitations.id, invitation.id));
         throw new TRPCError({ code: "BAD_REQUEST", message: "Este convite expirou. Solicite um novo link à administração." });
       }
-      if (invitation.email && ctx.user.email && invitation.email.toLowerCase() !== ctx.user.email.toLowerCase()) {
+      if (invitation.email && (!ctx.user.email || invitation.email.toLowerCase() !== ctx.user.email.toLowerCase())) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Este convite foi enviado para outro e-mail." });
       }
 
-      const existingMembership = await db
-        .select({ id: memberships.id })
-        .from(memberships)
-        .where(and(eq(memberships.userId, ctx.user.id), eq(memberships.condominiumId, invitation.condominiumId)))
-        .limit(1);
-      if (!existingMembership[0]) {
-        await db.insert(memberships).values({
-          userId: ctx.user.id,
-          condominiumId: invitation.condominiumId,
-          role: invitation.role,
-          unit: invitation.unit,
-          block: invitation.block,
-        });
-      }
-      await db
-        .update(invitations)
-        .set({ status: "accepted", acceptedById: ctx.user.id, acceptedAt: new Date() })
-        .where(and(eq(invitations.id, invitation.id), eq(invitations.status, "pending")));
+      await db.transaction(async tx => {
+        const claimed = await tx
+          .update(invitations)
+          .set({ status: "accepted", acceptedById: ctx.user.id, acceptedAt: new Date() })
+          .where(and(eq(invitations.id, invitation.id), eq(invitations.status, "pending")));
+        if (Number(claimed[0].affectedRows ?? 0) !== 1) {
+          throw new TRPCError({ code: "CONFLICT", message: "Este convite acabou de ser utilizado. Atualize a página para continuar." });
+        }
+
+        const existingMembership = await tx
+          .select({ id: memberships.id })
+          .from(memberships)
+          .where(and(eq(memberships.userId, ctx.user.id), eq(memberships.condominiumId, invitation.condominiumId)))
+          .limit(1);
+        if (!existingMembership[0]) {
+          await tx.insert(memberships).values({
+            userId: ctx.user.id,
+            condominiumId: invitation.condominiumId,
+            role: invitation.role,
+            unit: invitation.unit,
+            block: invitation.block,
+          });
+        }
+      });
 
       return { success: true, condominiumId: invitation.condominiumId } as const;
     }),

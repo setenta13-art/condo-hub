@@ -15,15 +15,22 @@ import Tickets from "@/pages/Tickets";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Route, Switch, useLocation } from "wouter";
+import { useEffect } from "react";
 import ErrorBoundary from "./components/ErrorBoundary";
 import DashboardLayout from "./components/DashboardLayout";
 import { DashboardLayoutSkeleton } from "./components/DashboardLayoutSkeleton";
 import { ThemeProvider } from "./contexts/ThemeContext";
 
 function Router() {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const { isAuthenticated, loading, user } = useAuth();
   const overview = trpc.condo.dashboard.overview.useQuery(undefined, { enabled: isAuthenticated, retry: false });
+
+  useEffect(() => {
+    if (!isAuthenticated || location !== "/") return;
+    const pendingToken = sessionStorage.getItem("condohub-pending-invite");
+    if (pendingToken) navigate(`/invite/${pendingToken}`);
+  }, [isAuthenticated, location, navigate]);
 
   if (location === "/invite" || location.startsWith("/invite/")) return <Invite />;
   if (loading || (isAuthenticated && overview.isLoading)) return <DashboardLayoutSkeleton />;
