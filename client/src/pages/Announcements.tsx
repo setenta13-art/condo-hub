@@ -22,7 +22,7 @@ function formatDate(value: Date | string) {
 export default function Announcements() {
   const { isAuthenticated } = useAuth();
   const { data: overview } = trpc.condo.dashboard.overview.useQuery(undefined, { enabled: isAuthenticated });
-  const { data } = trpc.condo.announcements.list.useQuery(undefined, { enabled: isAuthenticated });
+  const { data } = trpc.condo.announcements.list.useQuery(undefined, { enabled: isAuthenticated && !!overview?.scope });
   const utils = trpc.useUtils();
   const create = trpc.condo.announcements.create.useMutation({ onSuccess: async () => { await utils.condo.announcements.list.invalidate(); await utils.condo.dashboard.overview.invalidate(); setShowForm(false); setForm({ title: "", summary: "", body: "", category: "general", isPinned: false }); } });
   const [showForm, setShowForm] = useState(false);

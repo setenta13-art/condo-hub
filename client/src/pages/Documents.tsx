@@ -20,7 +20,7 @@ function formatDate(value: Date | string) { return new Intl.DateTimeFormat("pt-B
 export default function Documents() {
   const { isAuthenticated } = useAuth();
   const { data: overview } = trpc.condo.dashboard.overview.useQuery(undefined, { enabled: isAuthenticated });
-  const { data } = trpc.condo.documents.list.useQuery(undefined, { enabled: isAuthenticated });
+  const { data } = trpc.condo.documents.list.useQuery(undefined, { enabled: isAuthenticated && !!overview?.scope });
   const utils = trpc.useUtils();
   const create = trpc.condo.documents.create.useMutation({ onSuccess: async () => { await utils.condo.documents.list.invalidate(); await utils.condo.dashboard.overview.invalidate(); setShowForm(false); setForm({ title: "", description: "", category: "rules", fileUrl: "", fileKey: "" }); } });
   const [showForm, setShowForm] = useState(false);
