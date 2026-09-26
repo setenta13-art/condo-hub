@@ -30,6 +30,7 @@ import {
   LogOut,
   Megaphone,
   PanelLeft,
+  Settings2,
   UserRound,
   UsersRound,
 } from "lucide-react";
@@ -45,6 +46,7 @@ const menuItems = [
   { icon: FileText, label: "Documentos", path: "/documents" },
   { icon: UsersRound, label: "Convites", path: "/invites" },
   { icon: UsersRound, label: "Responsáveis", path: "/responsibles", managementOnly: true },
+  { icon: Settings2, label: "Configuração", path: "/setup", managementOnly: true, platformOnly: true },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
@@ -86,7 +88,7 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const canManage = user?.role === "admin" || ["staff", "manager", "admin"].includes(overview?.scope?.membership?.role ?? "");
-  const visibleMenuItems = menuItems.filter(item => !item.managementOnly || canManage);
+  const visibleMenuItems = menuItems.filter(item => (!item.managementOnly || canManage) && (!item.platformOnly || user?.role === "admin"));
   const activeMenuItem = visibleMenuItems.find(item => item.path === location) ?? visibleMenuItems[0];
   const isMobile = useIsMobile();
 

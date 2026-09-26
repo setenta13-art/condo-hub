@@ -43,6 +43,24 @@ export const condominiums = mysqlTable("condominiums", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+export const blocks = mysqlTable("blocks", {
+  id: int("id").autoincrement().primaryKey(),
+  condominiumId: int("condominiumId").notNull(),
+  name: varchar("name", { length: 80 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export const units = mysqlTable("units", {
+  id: int("id").autoincrement().primaryKey(),
+  condominiumId: int("condominiumId").notNull(),
+  blockId: int("blockId"),
+  identifier: varchar("identifier", { length: 40 }).notNull(),
+  status: mysqlEnum("status", ["active", "inactive"]).default("active").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 export const memberships = mysqlTable("memberships", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
@@ -129,6 +147,8 @@ export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type Organization = typeof organizations.$inferSelect;
 export type Condominium = typeof condominiums.$inferSelect;
+export type Block = typeof blocks.$inferSelect;
+export type Unit = typeof units.$inferSelect;
 export type Membership = typeof memberships.$inferSelect;
 export type Announcement = typeof announcements.$inferSelect;
 export type Ticket = typeof tickets.$inferSelect;

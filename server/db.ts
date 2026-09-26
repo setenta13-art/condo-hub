@@ -80,7 +80,7 @@ export async function getUserScope(userId: number, isPlatformAdmin = false) {
     .from(memberships)
     .innerJoin(condominiums, eq(memberships.condominiumId, condominiums.id))
     .innerJoin(organizations, eq(condominiums.organizationId, organizations.id))
-    .where(eq(memberships.userId, userId))
+    .where(and(eq(memberships.userId, userId), eq(condominiums.status, "active")))
     .limit(1);
 
   if (rows[0]) return rows[0];

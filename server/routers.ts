@@ -6,6 +6,7 @@ import { condoRouter } from "./routers/condo";
 import { invitationRouter } from "./routers/invitations";
 import { profileRouter } from "./routers/profile";
 import { responsiblesRouter } from "./routers/responsibles";
+import { setupRouter } from "./routers/setup";
 
 export const appRouter = router({
   system: systemRouter,
@@ -21,6 +22,7 @@ export const appRouter = router({
   invitations: invitationRouter,
   profile: profileRouter,
   responsibles: responsiblesRouter,
+  setup: setupRouter,
 });
 
 export type AppRouter = typeof appRouter;

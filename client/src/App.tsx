@@ -10,6 +10,7 @@ import NotFound from "@/pages/NotFound";
 import Profile from "@/pages/Profile";
 import PublicHome from "@/pages/PublicHome";
 import Responsibles from "@/pages/Responsibles";
+import Setup from "@/pages/Setup";
 import Tickets from "@/pages/Tickets";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
@@ -39,6 +40,7 @@ function Router() {
         <Route path="/invites" component={Invites} />
         <Route path="/profile" component={Profile} />
         <Route path="/responsibles" component={Responsibles} />
+        <Route path="/setup" component={Setup} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
       </Switch>

@@ -41,4 +41,10 @@ describe("condo authorization", () => {
 
     await expect(caller.responsibles.list()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
+
+  it("requires authentication before accessing setup", async () => {
+    const caller = appRouter.createCaller(createUnauthenticatedContext());
+
+    await expect(caller.setup.overview()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  });
 });
