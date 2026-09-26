@@ -29,6 +29,7 @@ import {
   LogOut,
   Megaphone,
   PanelLeft,
+  UsersRound,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -40,6 +41,7 @@ const menuItems = [
   { icon: Megaphone, label: "Comunicados", path: "/announcements" },
   { icon: ClipboardList, label: "Chamados", path: "/tickets" },
   { icon: FileText, label: "Documentos", path: "/documents" },
+  { icon: UsersRound, label: "Convites", path: "/invites" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";

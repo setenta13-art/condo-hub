@@ -108,6 +108,23 @@ export const documents = mysqlTable("documents", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+export const invitations = mysqlTable("invitations", {
+  id: int("id").autoincrement().primaryKey(),
+  condominiumId: int("condominiumId").notNull(),
+  createdById: int("createdById").notNull(),
+  acceptedById: int("acceptedById"),
+  email: varchar("email", { length: 320 }),
+  token: varchar("token", { length: 96 }).notNull().unique(),
+  role: mysqlEnum("role", ["resident", "staff", "manager"]).default("resident").notNull(),
+  unit: varchar("unit", { length: 40 }),
+  block: varchar("block", { length: 40 }),
+  status: mysqlEnum("status", ["pending", "accepted", "expired", "revoked"]).default("pending").notNull(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  acceptedAt: timestamp("acceptedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type Organization = typeof organizations.$inferSelect;
@@ -116,3 +133,4 @@ export type Membership = typeof memberships.$inferSelect;
 export type Announcement = typeof announcements.$inferSelect;
 export type Ticket = typeof tickets.$inferSelect;
 export type Document = typeof documents.$inferSelect;
+export type Invitation = typeof invitations.$inferSelect;

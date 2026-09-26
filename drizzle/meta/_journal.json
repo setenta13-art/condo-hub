@@ -15,6 +15,13 @@
       "when": 1790381558448,
       "tag": "0001_flat_ben_grimm",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1790381933577,
+      "tag": "0002_slim_golden_guardian",
+      "breakpoints": true
     }
   ]
 }
