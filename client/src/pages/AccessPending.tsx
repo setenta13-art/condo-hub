@@ -1,0 +1,10 @@
+import { useAuth } from "@/_core/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import { startLogin } from "@/const";
+import { Building2, LogOut, Mail, UserRoundPlus } from "lucide-react";
+import { Link } from "wouter";
+
+export default function AccessPending() {
+  const { user, logout } = useAuth();
+  return <main className="flex min-h-screen items-center justify-center bg-[#f7f8fc] px-4 py-10"><div className="w-full max-w-lg rounded-[28px] border border-border/80 bg-card p-7 text-center shadow-[0_24px_70px_-35px_rgba(20,40,70,0.55)] sm:p-10"><div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground"><Building2 className="h-7 w-7" /></div><p className="mt-6 text-xs font-bold uppercase tracking-[0.16em] text-primary">Acesso aguardando vínculo</p><h1 className="mt-2 text-2xl font-extrabold tracking-[-0.04em]">Seu cadastro está criado, mas ainda não está liberado.</h1><p className="mt-4 text-sm leading-6 text-muted-foreground">Para acessar comunicados, chamados e documentos, seu usuário precisa estar associado a uma unidade. Isso pode ser feito por um convite da administração.</p><div className="mt-6 rounded-2xl bg-muted/60 p-4 text-left"><div className="flex items-center gap-3"><Mail className="h-4 w-4 text-primary" /><div><p className="text-sm font-bold">Como liberar seu acesso</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Peça à administradora um convite com seu bloco e unidade. Quando receber o link, abra-o neste navegador e aceite o vínculo.</p></div></div></div><div className="mt-6 flex flex-col gap-3 sm:flex-row"><Link href="/invite" className="flex-1"><Button className="w-full rounded-xl"><UserRoundPlus className="mr-2 h-4 w-4" />Tenho um convite</Button></Link><Button variant="outline" onClick={logout} className="flex-1 rounded-xl bg-background"><LogOut className="mr-2 h-4 w-4" />Sair</Button></div><p className="mt-5 text-[11px] text-muted-foreground">Conta: {user?.email || user?.name || "usuário autenticado"}</p></div></main>;
+}

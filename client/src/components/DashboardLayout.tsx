@@ -29,6 +29,7 @@ import {
   LogOut,
   Megaphone,
   PanelLeft,
+  UserRound,
   UsersRound,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
@@ -151,7 +152,7 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
                   <SidebarMenuItem key={item.path}>
                     <SidebarMenuButton
                       isActive={isActive}
-                      onClick={() => setLocation(item.path)}
+                      onClick={() => { setLocation(item.path); if (isMobile && !isCollapsed) toggleSidebar(); }}
                       tooltip={item.label}
                       className="h-11 rounded-xl font-medium transition-all"
                     >
@@ -179,6 +180,10 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuItem onClick={() => setLocation("/profile")} className="cursor-pointer">
+                    <UserRound className="mr-2 h-4 w-4" />
+                    <span>Meu perfil</span>
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={logout} className="cursor-pointer text-destructive focus:text-destructive">
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Sair da conta</span>

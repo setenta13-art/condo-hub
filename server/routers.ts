@@ -4,6 +4,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { condoRouter } from "./routers/condo";
 import { invitationRouter } from "./routers/invitations";
+import { profileRouter } from "./routers/profile";
 
 export const appRouter = router({
   system: systemRouter,
@@ -17,6 +18,7 @@ export const appRouter = router({
   }),
   condo: condoRouter,
   invitations: invitationRouter,
+  profile: profileRouter,
 });
 
 export type AppRouter = typeof appRouter;
