@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { startLogin } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
+import { trpc } from "@/lib/trpc";
 import {
   Building2,
   ClipboardList,
@@ -43,6 +44,7 @@ const menuItems = [
   { icon: ClipboardList, label: "Chamados", path: "/tickets" },
   { icon: FileText, label: "Documentos", path: "/documents" },
   { icon: UsersRound, label: "Convites", path: "/invites" },
+  { icon: UsersRound, label: "Responsáveis", path: "/responsibles", managementOnly: true },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
@@ -77,12 +79,15 @@ type DashboardLayoutContentProps = {
 
 function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutContentProps) {
   const { user, logout } = useAuth();
+  const { data: overview } = trpc.condo.dashboard.overview.useQuery(undefined, { enabled: Boolean(user) });
   const [location, setLocation] = useLocation();
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
-  const activeMenuItem = menuItems.find(item => item.path === location) ?? menuItems[0];
+  const canManage = user?.role === "admin" || ["staff", "manager", "admin"].includes(overview?.scope?.membership?.role ?? "");
+  const visibleMenuItems = menuItems.filter(item => !item.managementOnly || canManage);
+  const activeMenuItem = visibleMenuItems.find(item => item.path === location) ?? visibleMenuItems[0];
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -146,7 +151,7 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
               <p className="px-4 pb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Menu principal</p>
             )}
             <SidebarMenu className="px-2">
-              {menuItems.map(item => {
+              {visibleMenuItems.map(item => {
                 const isActive = location === item.path;
                 return (
                   <SidebarMenuItem key={item.path}>

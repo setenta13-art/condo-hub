@@ -9,6 +9,7 @@ import Invites from "@/pages/Invites";
 import NotFound from "@/pages/NotFound";
 import Profile from "@/pages/Profile";
 import PublicHome from "@/pages/PublicHome";
+import Responsibles from "@/pages/Responsibles";
 import Tickets from "@/pages/Tickets";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
@@ -37,6 +38,7 @@ function Router() {
         <Route path="/documents" component={Documents} />
         <Route path="/invites" component={Invites} />
         <Route path="/profile" component={Profile} />
+        <Route path="/responsibles" component={Responsibles} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
       </Switch>
