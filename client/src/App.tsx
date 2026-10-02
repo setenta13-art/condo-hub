@@ -5,6 +5,7 @@ import AccessPending from "@/pages/AccessPending";
 import Documents from "@/pages/Documents";
 import Home from "@/pages/Home";
 import Invite from "@/pages/Invite";
+import Login from "@/pages/Login";
 import Invites from "@/pages/Invites";
 import NotFound from "@/pages/NotFound";
 import Profile from "@/pages/Profile";
@@ -33,6 +34,7 @@ function Router() {
   }, [isAuthenticated, location, navigate]);
 
   if (location === "/invite" || location.startsWith("/invite/")) return <Invite />;
+  if (location === "/login") return <Login />;
   if (loading || (isAuthenticated && overview.isLoading)) return <DashboardLayoutSkeleton />;
   if (!isAuthenticated) return <PublicHome />;
   if (user?.role !== "admin" && overview.data && !overview.data.scope) return <AccessPending />;

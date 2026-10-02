@@ -6,6 +6,7 @@ import type { Request } from "express";
 import { SignJWT, jwtVerify } from "jose";
 import type { User } from "../../drizzle/schema";
 import * as db from "../db";
+import { getSupabaseUser, upsertAppUser } from "../supabase";
 import { ENV } from "./env";
 import type {
   ExchangeTokenRequest,
@@ -256,6 +257,21 @@ class SDKServer {
   }
 
   async authenticateRequest(req: Request): Promise<AuthenticatedUser> {
+    // Public deployment path: Supabase Auth access token in a secure cookie or
+    // Authorization header. This runs before the legacy Manus session flow.
+    const supabaseCookies = this.parseCookies(req.headers.cookie);
+    let supabaseToken = supabaseCookies.get("sb-access-token");
+    if (!supabaseToken) {
+      const authHeader = req.headers.authorization;
+      if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
+        supabaseToken = authHeader.slice(7);
+      }
+    }
+    if (supabaseToken) {
+      const authUser = await getSupabaseUser(supabaseToken);
+      if (authUser) return await upsertAppUser(authUser);
+    }
+
     // 1. Prefer the session cookie (regular OAuth login).
     const cookies = this.parseCookies(req.headers.cookie);
     let sessionToken = cookies.get(COOKIE_NAME);
