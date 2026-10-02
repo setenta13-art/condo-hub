@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   announcements,
@@ -8,6 +8,7 @@ import {
   memberships,
   organizations,
   tickets,
+  units,
   users,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
@@ -130,4 +131,14 @@ export async function getDocuments(condominiumId: number) {
     .from(documents)
     .where(eq(documents.condominiumId, condominiumId))
     .orderBy(desc(documents.createdAt));
+}
+
+export async function getUnitCount(condominiumId: number) {
+  const db = await getDb();
+  if (!db) return 0;
+  const result = await db
+    .select({ total: count() })
+    .from(units)
+    .where(and(eq(units.condominiumId, condominiumId), eq(units.status, "active")));
+  return Number(result[0]?.total ?? 0);
 }

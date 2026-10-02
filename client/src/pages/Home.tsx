@@ -18,43 +18,6 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 
-const demoAnnouncements = [
-  {
-    id: 1,
-    title: "Manutenção preventiva dos elevadores",
-    summary: "A revisão acontece na próxima terça-feira, das 9h às 13h.",
-    category: "maintenance",
-    publishedAt: new Date("2026-09-24T13:00:00Z"),
-    isPinned: 1,
-  },
-  {
-    id: 2,
-    title: "Assembleia extraordinária — espaço gourmet",
-    summary: "Confira a pauta e participe da decisão sobre a nova área comum.",
-    category: "event",
-    publishedAt: new Date("2026-09-22T13:00:00Z"),
-    isPinned: 0,
-  },
-  {
-    id: 3,
-    title: "Prestação de contas — agosto/2026",
-    summary: "O relatório financeiro já está disponível na área de documentos.",
-    category: "finance",
-    publishedAt: new Date("2026-09-18T13:00:00Z"),
-    isPinned: 0,
-  },
-];
-
-const demoTickets = [
-  { id: 21, title: "Luz do corredor do 3º andar", category: "maintenance", status: "in_progress", priority: "medium" },
-  { id: 22, title: "Vazamento próximo à garagem", category: "maintenance", status: "open", priority: "high" },
-];
-
-const demoDocuments = [
-  { id: 31, title: "Regulamento interno", category: "rules", createdAt: new Date("2026-09-12T13:00:00Z") },
-  { id: 32, title: "Ata da assembleia — maio/2026", category: "meeting", createdAt: new Date("2026-08-10T13:00:00Z") },
-];
-
 function formatDate(value: Date | string) {
   return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(new Date(value));
 }
@@ -70,10 +33,10 @@ function statusLabel(status: string) {
 export default function Home() {
   const { user, isAuthenticated } = useAuth();
   const { data: overview } = trpc.condo.dashboard.overview.useQuery(undefined, { enabled: isAuthenticated });
-  const announcements = overview?.announcements ?? demoAnnouncements;
-  const tickets = overview?.tickets ?? demoTickets;
-  const documents = overview?.documents ?? demoDocuments;
-  const counts = overview?.counts ?? { announcements: 12, tickets: 8, openTickets: 3, documents: 24 };
+  const announcements = overview?.announcements ?? [];
+  const tickets = overview?.tickets ?? [];
+  const documents = overview?.documents ?? [];
+  const counts = overview?.counts ?? { announcements: 0, tickets: 0, openTickets: 0, documents: 0, units: 0 };
   const condominium = overview?.scope?.condominium;
   const organization = overview?.scope?.organization;
 
@@ -129,12 +92,12 @@ export default function Home() {
               <span>{organization?.name ?? "Via Ernesto Administradora"}</span>
             </div>
             <h2 className="max-w-xl text-2xl font-extrabold tracking-[-0.04em] sm:text-3xl">{condominium?.name ?? "Condomínio Residencial Buena Vista"}</h2>
-            <p className="mt-2 text-sm text-white/65">{condominium?.city ?? "São Paulo"} · xxxx unidades · comunicação oficial</p>
+            <p className="mt-2 text-sm text-white/65">{condominium?.city ?? "Sem cidade cadastrada"} · {counts.units} unidades ativas · comunicação oficial</p>
           </div>
           <div className="grid grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-4 lg:min-w-[450px]">
-            <div><p className="text-2xl font-extrabold">98%</p><p className="mt-1 text-xs text-white/55">comunicados lidos</p></div>
-            <div><p className="text-2xl font-extrabold">2h</p><p className="mt-1 text-xs text-white/55">tempo médio de resposta</p></div>
-            <div><p className="text-2xl font-extrabold">24</p><p className="mt-1 text-xs text-white/55">documentos ativos</p></div>
+            <div><p className="text-2xl font-extrabold">{counts.announcements}</p><p className="mt-1 text-xs text-white/55">comunicados</p></div>
+            <div><p className="text-2xl font-extrabold">{counts.units}</p><p className="mt-1 text-xs text-white/55">unidades ativas</p></div>
+            <div><p className="text-2xl font-extrabold">{counts.documents}</p><p className="mt-1 text-xs text-white/55">documentos ativos</p></div>
             <div><p className="text-2xl font-extrabold">{counts.openTickets}</p><p className="mt-1 text-xs text-white/55">chamados abertos</p></div>
           </div>
         </div>
@@ -142,12 +105,12 @@ export default function Home() {
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          { label: "Comunicados", value: counts.announcements, helper: "atualizações recentes", icon: Megaphone, tone: "teal" },
-          { label: "Meus chamados", value: counts.tickets, helper: `${counts.openTickets} aguardando atenção`, icon: ClipboardList, tone: "purple" },
-          { label: "Documentos", value: counts.documents, helper: "arquivos disponíveis", icon: FileText, tone: "amber" },
-          { label: "Atendimento", value: "Online", helper: "equipe disponível hoje", icon: CheckCircle2, tone: "green" },
+          { label: "Comunicados", value: counts.announcements, helper: "atualizações recentes", icon: Megaphone, tone: "teal", path: "/announcements" },
+          { label: "Meus chamados", value: counts.tickets, helper: `${counts.openTickets} aguardando atenção`, icon: ClipboardList, tone: "purple", path: "/tickets" },
+          { label: "Documentos", value: counts.documents, helper: "arquivos disponíveis", icon: FileText, tone: "amber", path: "/documents" },
+          { label: "Atendimento", value: counts.openTickets, helper: "chamados aguardando atenção", icon: CheckCircle2, tone: "green", path: "/tickets" },
         ].map(item => (
-          <div key={item.label} className="rounded-2xl border border-border/80 bg-card p-5 shadow-[0_8px_28px_-24px_rgba(20,40,70,0.4)] transition hover:-translate-y-0.5 hover:shadow-md">
+          <Link key={item.label} href={item.path} className="rounded-2xl border border-border/80 bg-card p-5 shadow-[0_8px_28px_-24px_rgba(20,40,70,0.4)] transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <div className="flex items-start justify-between">
               <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${item.tone === "teal" ? "bg-[#dff5ef] text-[#18796c]" : item.tone === "purple" ? "bg-[#eee8ff] text-[#7652c8]" : item.tone === "amber" ? "bg-[#fff3d9] text-[#b77a20]" : "bg-[#e4f5e8] text-[#2b8b50]"}`}>
                 <item.icon className="h-[18px] w-[18px]" />
@@ -157,7 +120,7 @@ export default function Home() {
             <p className="mt-5 text-2xl font-extrabold tracking-[-0.04em]">{item.value}</p>
             <p className="mt-1 text-sm font-semibold">{item.label}</p>
             <p className="mt-1 text-xs text-muted-foreground">{item.helper}</p>
-          </div>
+          </Link>
         ))}
       </section>
 

@@ -187,7 +187,7 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-52">
-                  <DropdownMenuItem onClick={() => setLocation("/profile")} className="cursor-pointer">
+                  <DropdownMenuItem onClick={() => { setLocation("/profile"); if (isMobile && !isCollapsed) toggleSidebar(); }} className="cursor-pointer">
                     <UserRound className="mr-2 h-4 w-4" />
                     <span>Meu perfil</span>
                   </DropdownMenuItem>

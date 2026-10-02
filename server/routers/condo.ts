@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { announcements, documents, tickets } from "../../drizzle/schema";
-import { getAnnouncements, getDb, getDocuments, getTickets, getUserScope } from "../db";
+import { getAnnouncements, getDb, getDocuments, getTickets, getUnitCount, getUserScope } from "../db";
 import { protectedProcedure, router } from "../_core/trpc";
 
 const categoryAnnouncement = z.enum(["maintenance", "finance", "event", "general"]);
@@ -42,14 +42,15 @@ export const condoRouter = router({
           announcements: [],
           tickets: [],
           documents: [],
-          counts: { announcements: 0, tickets: 0, openTickets: 0, documents: 0 },
+          counts: { announcements: 0, tickets: 0, openTickets: 0, documents: 0, units: 0 },
         };
       }
       const staff = isStaff(scope, ctx.user.role);
-      const [announcementRows, ticketRows, documentRows] = await Promise.all([
+      const [announcementRows, ticketRows, documentRows, unitCount] = await Promise.all([
         getAnnouncements(scope.condominium.id),
         getTickets(scope.condominium.id, ctx.user.id, staff),
         getDocuments(scope.condominium.id),
+        getUnitCount(scope.condominium.id),
       ]);
 
       return {
@@ -67,6 +68,7 @@ export const condoRouter = router({
           tickets: ticketRows.length,
           openTickets: ticketRows.filter(ticket => ticket.status !== "resolved").length,
           documents: documentRows.length,
+          units: unitCount,
         },
       };
     }),
