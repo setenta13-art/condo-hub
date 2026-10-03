@@ -1,18 +1,24 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 let handlerPromise: Promise<(req: VercelRequest, res: VercelResponse) => unknown> | null = null;
+let initializationStage = "not_started";
 
 async function getHandler() {
   if (!handlerPromise) {
     handlerPromise = (async () => {
-      const [{ default: express }, { createExpressMiddleware }, { appRouter }, { createContext }] =
-        await Promise.all([
-          import("express"),
-          import("@trpc/server/adapters/express"),
-          import("../../../server/routers"),
-          import("../../../server/_core/context"),
-        ]);
+      initializationStage = "express";
+      const { default: express } = await import("express");
 
+      initializationStage = "trpc_adapter";
+      const { createExpressMiddleware } = await import("@trpc/server/adapters/express");
+
+      initializationStage = "app_router";
+      const { appRouter } = await import("../../../server/routers");
+
+      initializationStage = "context";
+      const { createContext } = await import("../../../server/_core/context");
+
+      initializationStage = "express_setup";
       const app = express();
       app.use(express.json({ limit: "50mb" }));
       app.use(
@@ -23,6 +29,7 @@ async function getHandler() {
         }),
       );
 
+      initializationStage = "ready";
       return app as unknown as (req: VercelRequest, res: VercelResponse) => unknown;
     })();
   }
@@ -35,7 +42,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const app = await getHandler();
     return app(req, res);
   } catch (error) {
-    console.error("[tRPC] Failed to initialize serverless handler:", error);
-    res.status(500).json({ error: "Falha ao inicializar API." });
+    console.error("[tRPC] Failed to initialize serverless handler:", initializationStage, error);
+    res.status(500).json({
+      error: "Falha ao inicializar API.",
+      stage: initializationStage,
+    });
   }
 }
