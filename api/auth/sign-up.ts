@@ -14,10 +14,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    const forwardedProto = req.headers["x-forwarded-proto"];
+    const protocol = Array.isArray(forwardedProto)
+      ? forwardedProto[0]
+      : forwardedProto ?? "https";
+    const host = req.headers.host;
+    const redirectTo = host ? `${protocol}://${host}/login` : undefined;
+
     const { data, error } = await signUp(
       email,
       password,
       typeof name === "string" ? name : undefined,
+      redirectTo,
     );
 
     if (error) {
