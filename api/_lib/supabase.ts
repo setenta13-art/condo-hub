@@ -21,7 +21,7 @@ function requireEnv(name: "SUPABASE_URL" | "SUPABASE_ANON_KEY" | "SUPABASE_SERVI
 }
 
 function baseUrl() {
-  return requireEnv("SUPABASE_URL").replace(/\/$/, "");
+  return new URL(requireEnv("SUPABASE_URL")).origin;
 }
 
 async function json(response: Response) {
