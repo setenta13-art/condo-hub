@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import express from "express";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
-import { appRouter } from "../../server/routers";
-import { createServerlessContext } from "../_lib/context";
+import { appRouter } from "../../server/routers.js";
+import { createServerlessContext } from "../_lib/context.js";
 
 const app = express();
 app.use(express.json({ limit: "50mb" }));
