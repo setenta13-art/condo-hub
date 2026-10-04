@@ -1,44 +1,52 @@
-import { and, eq } from "drizzle-orm";
-import { TRPCError } from "@trpc/server";
-import { condominiums, memberships, organizations, users } from "../../drizzle/schema.js";
-import { getDb, getUserScope } from "../db.js";
 import { protectedProcedure, router } from "../_core/trpc.js";
+import {
+  getUserById,
+  getUserScope,
+  listMemberships,
+  updateUserName,
+} from "../db.js";
 import { z } from "zod";
 
 export const profileRouter = router({
   get: protectedProcedure.query(async ({ ctx }) => {
-    const db = await getDb();
-    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Banco indisponível." });
     const scope = await getUserScope(ctx.user.id, false);
-    if (!scope) return { user: ctx.user, membership: null, condominium: null, organization: null, responsibleUsers: [] };
+    if (!scope) {
+      return {
+        user: ctx.user,
+        membership: null,
+        condominium: null,
+        organization: null,
+        responsibleUsers: [],
+      };
+    }
 
-    const responsibleRows = scope.membership?.unit
-      ? await db
-          .select({ user: users, membership: memberships })
-          .from(memberships)
-          .innerJoin(users, eq(memberships.userId, users.id))
-          .where(and(
-            eq(memberships.condominiumId, scope.condominium.id),
-            eq(memberships.unit, scope.membership.unit),
-            ...(scope.membership.block ? [eq(memberships.block, scope.membership.block)] : []),
-          ))
-      : [];
+    const responsibleUsers = [];
+    if (scope.membership?.unit) {
+      const memberships = await listMemberships(scope.condominium.id);
+      const sameUnit = memberships.filter(membership =>
+        membership.unit === scope.membership!.unit &&
+        (!scope.membership!.block || membership.block === scope.membership!.block)
+      );
+
+      for (const membership of sameUnit) {
+        const user = await getUserById(membership.userId);
+        if (user) responsibleUsers.push({ user, membership });
+      }
+    }
 
     return {
       user: ctx.user,
       membership: scope.membership,
       condominium: scope.condominium,
       organization: scope.organization,
-      responsibleUsers: responsibleRows.map(row => ({ user: row.user, membership: row.membership })),
+      responsibleUsers,
     };
   }),
 
   update: protectedProcedure
     .input(z.object({ name: z.string().trim().min(2).max(120) }))
     .mutation(async ({ ctx, input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Banco indisponível." });
-      await db.update(users).set({ name: input.name }).where(eq(users.id, ctx.user.id));
+      await updateUserName(ctx.user.id, input.name);
       return { success: true, name: input.name } as const;
     }),
 });
