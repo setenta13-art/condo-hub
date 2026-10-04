@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { signIn } from "../api/_lib/supabase.js";
 
 describe("Supabase credentials", () => {
   const configured = Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY);
@@ -17,5 +18,15 @@ describe("Supabase credentials", () => {
     });
 
     expect(response.ok, `Supabase Auth responded with HTTP ${response.status}`).toBe(true);
+  });
+
+  it.skipIf(!configured)("reaches the password sign-in endpoint without creating a user", async () => {
+    const result = await signIn(
+      "condohub-integration-nonexistent@invalid.example",
+      "invalid-password-for-integration-check",
+    );
+
+    expect(result.data.session).toBeNull();
+    expect(result.error?.message).toBeTruthy();
   });
 });
