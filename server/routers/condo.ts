@@ -1,8 +1,16 @@
-import { and, eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { announcements, documents, tickets } from "../../drizzle/schema.js";
-import { getAnnouncements, getDb, getDocuments, getTickets, getUnitCount, getUserScope } from "../db.js";
+import {
+  createAnnouncement,
+  createDocument,
+  createTicket,
+  getAnnouncements,
+  getDocuments,
+  getTickets,
+  getUnitCount,
+  getUserScope,
+  updateTicketStatus,
+} from "../db.js";
 import { protectedProcedure, router } from "../_core/trpc.js";
 
 const categoryAnnouncement = z.enum(["maintenance", "finance", "event", "general"]);
@@ -45,6 +53,7 @@ export const condoRouter = router({
           counts: { announcements: 0, tickets: 0, openTickets: 0, documents: 0, units: 0 },
         };
       }
+
       const staff = isStaff(scope, ctx.user.role);
       const [announcementRows, ticketRows, documentRows, unitCount] = await Promise.all([
         getAnnouncements(scope.condominium.id),
@@ -79,6 +88,7 @@ export const condoRouter = router({
       const scope = await resolveScope(ctx.user);
       return getAnnouncements(scope.condominium.id);
     }),
+
     create: protectedProcedure
       .input(
         z.object({
@@ -91,16 +101,14 @@ export const condoRouter = router({
       )
       .mutation(async ({ ctx, input }) => {
         const scope = await requireStaff(ctx.user);
-        const db = await getDb();
-        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Banco indisponível." });
-        await db.insert(announcements).values({
+        await createAnnouncement({
           condominiumId: scope.condominium.id,
           authorId: ctx.user.id,
           title: input.title,
           summary: input.summary,
           body: input.body,
           category: input.category,
-          isPinned: input.isPinned ? 1 : 0,
+          isPinned: input.isPinned,
         });
         return { success: true } as const;
       }),
@@ -111,6 +119,7 @@ export const condoRouter = router({
       const scope = await resolveScope(ctx.user);
       return getTickets(scope.condominium.id, ctx.user.id, isStaff(scope, ctx.user.role));
     }),
+
     create: protectedProcedure
       .input(
         z.object({
@@ -122,9 +131,7 @@ export const condoRouter = router({
       )
       .mutation(async ({ ctx, input }) => {
         const scope = await resolveScope(ctx.user);
-        const db = await getDb();
-        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Banco indisponível." });
-        await db.insert(tickets).values({
+        await createTicket({
           condominiumId: scope.condominium.id,
           openedById: ctx.user.id,
           title: input.title,
@@ -134,17 +141,12 @@ export const condoRouter = router({
         });
         return { success: true } as const;
       }),
+
     updateStatus: protectedProcedure
       .input(z.object({ id: z.number().int(), status: z.enum(["open", "in_progress", "resolved"]) }))
       .mutation(async ({ ctx, input }) => {
         const scope = await requireStaff(ctx.user);
-        const db = await getDb();
-        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Banco indisponível." });
-        await db
-          .update(tickets)
-          .set({ status: input.status })
-          // The tenant condition makes cross-condominium updates impossible.
-          .where(and(eq(tickets.id, input.id), eq(tickets.condominiumId, scope.condominium.id)));
+        await updateTicketStatus(input.id, scope.condominium.id, input.status);
         return { success: true } as const;
       }),
   }),
@@ -154,6 +156,7 @@ export const condoRouter = router({
       const scope = await resolveScope(ctx.user);
       return getDocuments(scope.condominium.id);
     }),
+
     create: protectedProcedure
       .input(
         z.object({
@@ -167,9 +170,7 @@ export const condoRouter = router({
       )
       .mutation(async ({ ctx, input }) => {
         const scope = await requireStaff(ctx.user);
-        const db = await getDb();
-        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Banco indisponível." });
-        await db.insert(documents).values({
+        await createDocument({
           condominiumId: scope.condominium.id,
           uploadedById: ctx.user.id,
           title: input.title,
