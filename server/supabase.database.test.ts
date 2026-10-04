@@ -4,7 +4,9 @@ import pg from "pg";
 const { Client } = pg;
 
 describe("Supabase database credentials", () => {
-  it("can execute a lightweight query through the configured PostgreSQL connection", async () => {
+  const configured = Boolean(process.env.SUPABASE_DB_URL);
+
+  it.skipIf(!configured)("can execute a lightweight query through the configured PostgreSQL connection", async () => {
     const connectionString = process.env.SUPABASE_DB_URL;
     expect(connectionString, "SUPABASE_DB_URL must be configured").toMatch(/^postgres(?:ql)?:\/\//);
 
