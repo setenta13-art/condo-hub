@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 describe("Supabase credentials", () => {
-  it("can reach the Auth settings endpoint with the configured public key", async () => {
+  const configured = Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY);
+
+  it.skipIf(!configured)("can reach the Auth settings endpoint with the configured public key", async () => {
     const url = process.env.SUPABASE_URL;
     const key = process.env.SUPABASE_ANON_KEY;
 
