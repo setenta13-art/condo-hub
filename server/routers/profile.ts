@@ -1,8 +1,8 @@
 import { and, eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { condominiums, memberships, organizations, users } from "../../drizzle/schema";
-import { getDb, getUserScope } from "../db";
-import { protectedProcedure, router } from "../_core/trpc";
+import { condominiums, memberships, organizations, users } from "../../drizzle/schema.js";
+import { getDb, getUserScope } from "../db.js";
+import { protectedProcedure, router } from "../_core/trpc.js";
 import { z } from "zod";
 
 export const profileRouter = router({
