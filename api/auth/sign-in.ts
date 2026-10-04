@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { signInWithPassword } from "../../server/supabase";
+import { signIn } from "../_lib/supabase";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
@@ -14,7 +14,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { data, error } = await signInWithPassword(email, password);
+    const { data, error } = await signIn(email, password);
     if (error || !data.session) {
       res.status(401).json({ error: error?.message ?? "Não foi possível entrar." });
       return;
