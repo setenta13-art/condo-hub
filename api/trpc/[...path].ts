@@ -67,9 +67,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return app(req, res);
   } catch (error) {
     console.error("[tRPC] Failed to initialize serverless handler:", initializationStage, error);
+    const details =
+      error instanceof Error
+        ? { name: error.name, message: error.message }
+        : { name: "UnknownError", message: String(error) };
     res.status(500).json({
       error: "Falha ao inicializar API.",
       stage: initializationStage,
+      details,
     });
   }
 }
