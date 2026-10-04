@@ -19,7 +19,7 @@ const isNonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.length > 0;
 
 type RequestLike = {
-  headers: {
+  headers?: {
     cookie?: string;
     authorization?: string | string[];
     [key: string]: string | string[] | undefined;
@@ -266,10 +266,10 @@ class SDKServer {
   async authenticateRequest(req: RequestLike): Promise<AuthenticatedUser> {
     // Public deployment path: Supabase Auth access token in a secure cookie or
     // Authorization header. This runs before the legacy Manus session flow.
-    const supabaseCookies = this.parseCookies(req.headers.cookie);
+    const supabaseCookies = this.parseCookies(req.headers?.cookie);
     let supabaseToken = supabaseCookies.get("sb-access-token");
     if (!supabaseToken) {
-      const authHeader = req.headers.authorization;
+      const authHeader = req.headers?.authorization;
       if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
         supabaseToken = authHeader.slice(7);
       }
@@ -280,14 +280,14 @@ class SDKServer {
     }
 
     // 1. Prefer the session cookie (regular OAuth login).
-    const cookies = this.parseCookies(req.headers.cookie);
+    const cookies = this.parseCookies(req.headers?.cookie);
     let sessionToken = cookies.get(COOKIE_NAME);
 
     // 2. Fallback to the Authorization header (Preview auto-login via
     //    sessionStorage), used when the browser blocks iframe cookies such as
     //    Safari ITP, private browsing, or iOS/Android WebView.
     if (!sessionToken) {
-      const authHeader = req.headers.authorization;
+      const authHeader = req.headers?.authorization;
       if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
         sessionToken = authHeader.slice(7);
       }
