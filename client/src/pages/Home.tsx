@@ -137,7 +137,7 @@ export default function Home() {
                   {index === 0 ? <Wrench className="h-4 w-4" /> : index === 1 ? <Bell className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2"><span className="text-[10px] font-bold uppercase tracking-[0.1em] text-primary">{categoryLabel(announcement.category)}</span>{announcement.isPinned === 1 && <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold text-accent-foreground">Fixado</span>}</div>
+                  <div className="flex flex-wrap items-center gap-2"><span className="text-[10px] font-bold uppercase tracking-[0.1em] text-primary">{categoryLabel(announcement.category)}</span>{announcement.isPinned && <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold text-accent-foreground">Fixado</span>}</div>
                   <h4 className="mt-1 truncate text-sm font-bold">{announcement.title}</h4>
                   <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{announcement.summary}</p>
                 </div>
