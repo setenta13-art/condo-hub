@@ -64,9 +64,17 @@ export async function signIn(email: string, password: string): Promise<AuthResul
   };
 }
 
-export async function signUp(email: string, password: string, name?: string): Promise<AuthResult> {
+export async function signUp(
+  email: string,
+  password: string,
+  name?: string,
+  redirectTo?: string,
+): Promise<AuthResult> {
   const key = requireEnv("SUPABASE_ANON_KEY");
-  const response = await fetch(`${baseUrl()}/auth/v1/signup`, {
+  const signupUrl = new URL(`${baseUrl()}/auth/v1/signup`);
+  if (redirectTo) signupUrl.searchParams.set("redirect_to", redirectTo);
+
+  const response = await fetch(signupUrl, {
     method: "POST",
     headers: {
       apikey: key,
