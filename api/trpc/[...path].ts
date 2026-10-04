@@ -13,7 +13,7 @@ async function getHandler() {
       const { createExpressMiddleware } = await import("@trpc/server/adapters/express");
 
       initializationStage = "shared_const";
-      await import("../../../shared/const");
+      await import("../../shared/const");
 
       initializationStage = "trpc_package";
       await import("@trpc/server");
@@ -22,34 +22,34 @@ async function getHandler() {
       await import("superjson");
 
       initializationStage = "trpc_core";
-      await import("../../../server/_core/trpc");
+      await import("../../server/_core/trpc");
 
       initializationStage = "cookies";
-      await import("../../../server/_core/cookies");
+      await import("../../server/_core/cookies");
 
       initializationStage = "system_router";
-      await import("../../../server/_core/systemRouter");
+      await import("../../server/_core/systemRouter");
 
       initializationStage = "condo_router";
-      await import("../../../server/routers/condo");
+      await import("../../server/routers/condo");
 
       initializationStage = "invitations_router";
-      await import("../../../server/routers/invitations");
+      await import("../../server/routers/invitations");
 
       initializationStage = "profile_router";
-      await import("../../../server/routers/profile");
+      await import("../../server/routers/profile");
 
       initializationStage = "responsibles_router";
-      await import("../../../server/routers/responsibles");
+      await import("../../server/routers/responsibles");
 
       initializationStage = "setup_router";
-      await import("../../../server/routers/setup");
+      await import("../../server/routers/setup");
 
       initializationStage = "app_router";
-      const { appRouter } = await import("../../../server/routers");
+      const { appRouter } = await import("../../server/routers");
 
       initializationStage = "context";
-      const { createContext } = await import("../../../server/_core/context");
+      const { createContext } = await import("../../server/_core/context");
 
       initializationStage = "express_setup";
       const app = express();
