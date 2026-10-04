@@ -188,7 +188,7 @@ export default function Home() {
         </div>
       </section>}
 
-      {hasScope && <div className="flex items-center justify-between rounded-2xl border border-dashed border-primary/25 bg-primary/[0.04] px-5 py-4"><div className="flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary"><Timer className="h-4 w-4" /></div><p className="text-xs text-muted-foreground"><strong className="text-foreground">Mais clareza, menos ruído.</strong> Toda solicitação fica registrada e acompanhada pela equipe.</p></div><Link href="/tickets" className="hidden text-xs font-bold text-primary sm:block">Acompanhar atendimento <ChevronRight className="ml-1 inline h-3.5 w-3.5" /></Link></div>
+      {hasScope && <div className="flex items-center justify-between rounded-2xl border border-dashed border-primary/25 bg-primary/[0.04] px-5 py-4"><div className="flex items-center gap-3"><div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary"><Timer className="h-4 w-4" /></div><p className="text-xs text-muted-foreground"><strong className="text-foreground">Mais clareza, menos ruído.</strong> Toda solicitação fica registrada e acompanhada pela equipe.</p></div><Link href="/tickets" className="hidden text-xs font-bold text-primary sm:block">Acompanhar atendimento <ChevronRight className="ml-1 inline h-3.5 w-3.5" /></Link></div>}
     </div>
   );
 }
