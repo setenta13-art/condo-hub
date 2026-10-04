@@ -2,7 +2,9 @@ import { TRPCError } from "@trpc/server";
 import {
   getUserById,
   getUserScope,
+  listBlocks,
   listMemberships,
+  listUnits,
   removeMembership,
   updateMembership,
 } from "../db.js";
@@ -69,10 +71,59 @@ export const responsiblesRouter = router({
         });
       }
 
+      const requestedUnit = input.unit?.trim() || null;
+      const requestedBlock = input.block?.trim() || null;
+
+      if (input.role === "resident" && !requestedUnit) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Responsáveis moradores precisam estar vinculados a uma unidade.",
+        });
+      }
+
+      if (requestedUnit || requestedBlock) {
+        const [blocks, units] = await Promise.all([
+          listBlocks(scope.condominium.id),
+          listUnits(scope.condominium.id, true),
+        ]);
+
+        const block = requestedBlock
+          ? blocks.find(row => row.name === requestedBlock)
+          : undefined;
+        if (requestedBlock && !block) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Selecione um bloco cadastrado no condomínio.",
+          });
+        }
+
+        if (requestedUnit) {
+          const matchingUnits = units.filter(row => row.identifier === requestedUnit);
+          if (!matchingUnits.length) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Selecione uma unidade cadastrada e ativa.",
+            });
+          }
+          if (block && !matchingUnits.some(row => row.blockId === block.id)) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "A unidade não pertence ao bloco selecionado.",
+            });
+          }
+          if (!block && matchingUnits.length > 1) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Informe o bloco para identificar esta unidade.",
+            });
+          }
+        }
+      }
+
       await updateMembership(input.id, scope.condominium.id, {
         role: input.role,
-        unit: input.unit || null,
-        block: input.block || null,
+        unit: requestedUnit,
+        block: requestedBlock,
       });
       return { success: true } as const;
     }),
