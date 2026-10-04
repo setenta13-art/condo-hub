@@ -551,3 +551,54 @@ export async function setCondominiumStatus(id: number, status: string) {
     body: JSON.stringify({ status }),
   });
 }
+
+
+export async function listAllBlocks() {
+  const rows = await request("blocks?select=*&order=name.asc") as any[];
+  return rows.map(mapBlock);
+}
+
+export async function listAllUnits() {
+  const rows = await request("units?select=*&order=identifier.asc") as any[];
+  return rows.map(mapUnit);
+}
+
+// Legacy compatibility for the old Manus SDK. The public Vercel path is
+// Supabase-only; these exports remain so the historical Express build compiles.
+export async function getUserByOpenId(openId: string) {
+  const rows = await request(
+    `app_users?open_id=eq.${encodeURIComponent(openId)}&select=*&limit=1`,
+  ) as any[];
+  return rows[0] ? mapUser(rows[0]) : undefined;
+}
+
+export async function upsertUser(user: {
+  openId: string;
+  name?: string | null;
+  email?: string | null;
+  loginMethod?: string | null;
+  role?: "user" | "admin";
+  lastSignedIn?: Date;
+}) {
+  const existing = await getUserByOpenId(user.openId);
+  if (!existing) {
+    throw new Error(
+      "Legacy Manus user creation is disabled after the Supabase Auth migration.",
+    );
+  }
+
+  await request(
+    `app_users?id=eq.${existing.id}`,
+    {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({
+        ...(user.name !== undefined ? { name: user.name } : {}),
+        ...(user.email !== undefined ? { email: user.email } : {}),
+        ...(user.loginMethod !== undefined ? { login_method: user.loginMethod } : {}),
+        ...(user.role !== undefined ? { role: user.role } : {}),
+        last_signed_in: (user.lastSignedIn ?? new Date()).toISOString(),
+      }),
+    },
+  );
+}
