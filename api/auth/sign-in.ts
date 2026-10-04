@@ -13,8 +13,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { getSupabaseAuth } = await import("../../server/supabase");
-    const { data, error } = await getSupabaseAuth().auth.signInWithPassword({ email, password });
+    const { signInWithPassword } = await import("../../server/supabase");
+    const { data, error } = await signInWithPassword(email, password);
     if (error || !data.session) {
       res.status(401).json({ error: error?.message ?? "Não foi possível entrar." });
       return;
