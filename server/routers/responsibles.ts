@@ -1,8 +1,8 @@
 import { and, asc, eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { memberships, users } from "../../drizzle/schema";
-import { getDb, getUserScope } from "../db";
-import { protectedProcedure, router } from "../_core/trpc";
+import { memberships, users } from "../../drizzle/schema.js";
+import { getDb, getUserScope } from "../db.js";
+import { protectedProcedure, router } from "../_core/trpc.js";
 import { z } from "zod";
 
 const membershipRole = z.enum(["resident", "staff", "manager", "admin"]);
