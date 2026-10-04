@@ -12,6 +12,30 @@ async function getHandler() {
       initializationStage = "trpc_adapter";
       const { createExpressMiddleware } = await import("@trpc/server/adapters/express");
 
+      initializationStage = "trpc_core";
+      await import("../../../server/_core/trpc");
+
+      initializationStage = "cookies";
+      await import("../../../server/_core/cookies");
+
+      initializationStage = "system_router";
+      await import("../../../server/_core/systemRouter");
+
+      initializationStage = "condo_router";
+      await import("../../../server/routers/condo");
+
+      initializationStage = "invitations_router";
+      await import("../../../server/routers/invitations");
+
+      initializationStage = "profile_router";
+      await import("../../../server/routers/profile");
+
+      initializationStage = "responsibles_router";
+      await import("../../../server/routers/responsibles");
+
+      initializationStage = "setup_router";
+      await import("../../../server/routers/setup");
+
       initializationStage = "app_router";
       const { appRouter } = await import("../../../server/routers");
 
