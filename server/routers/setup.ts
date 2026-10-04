@@ -1,9 +1,9 @@
 import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { TRPCError } from "@trpc/server";
-import { blocks, condominiums, memberships, organizations, units } from "../../drizzle/schema";
-import { getDb } from "../db";
-import { protectedProcedure, router } from "../_core/trpc";
+import { blocks, condominiums, memberships, organizations, units } from "../../drizzle/schema.js";
+import { getDb } from "../db.js";
+import { protectedProcedure, router } from "../_core/trpc.js";
 import { z } from "zod";
 
 async function requirePlatformAdmin(user: { role: string }) {
