@@ -13,12 +13,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { getSupabaseAuth } = await import("../../server/supabase");
-    const { data, error } = await getSupabaseAuth().auth.signUp({
+    const { signUpWithPassword } = await import("../../server/supabase");
+    const { data, error } = await signUpWithPassword(
       email,
       password,
-      options: { data: { name: typeof name === "string" ? name : undefined } },
-    });
+      typeof name === "string" ? name : undefined,
+    );
 
     if (error) {
       res.status(400).json({ error: error.message });
