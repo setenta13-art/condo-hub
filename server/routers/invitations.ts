@@ -2,9 +2,9 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { blocks, condominiums, invitations, memberships, organizations, units } from "../../drizzle/schema";
-import { getDb, getUserScope } from "../db";
-import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
+import { blocks, condominiums, invitations, memberships, organizations, units } from "../../drizzle/schema.js";
+import { getDb, getUserScope } from "../db.js";
+import { protectedProcedure, publicProcedure, router } from "../_core/trpc.js";
 
 const invitationRole = z.enum(["resident", "staff", "manager"]);
 
