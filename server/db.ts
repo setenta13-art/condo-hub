@@ -167,21 +167,21 @@ export function mapInvitation(row: any) {
 
 export async function getUserScope(userId: number, isPlatformAdmin = false) {
   const membershipRows = await request(
-    `memberships?user_id=eq.${userId}&select=*&order=created_at.asc&limit=1`,
+    `memberships?user_id=eq.${userId}&select=*&order=created_at.asc`,
   ) as any[];
 
-  if (membershipRows[0]) {
-    const membership = mapMembership(membershipRows[0]);
+  for (const membershipRow of membershipRows) {
+    const membership = mapMembership(membershipRow);
     const condominiumRows = await request(
       `condominiums?id=eq.${membership.condominiumId}&status=eq.active&select=*&limit=1`,
     ) as any[];
-    if (!condominiumRows[0]) return undefined;
+    if (!condominiumRows[0]) continue;
 
     const condominium = mapCondominium(condominiumRows[0]);
     const organizationRows = await request(
       `organizations?id=eq.${condominium.organizationId}&select=*&limit=1`,
     ) as any[];
-    if (!organizationRows[0]) return undefined;
+    if (!organizationRows[0]) continue;
 
     return {
       membership,
