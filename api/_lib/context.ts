@@ -1,6 +1,6 @@
 import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
 import { parse as parseCookieHeader } from "cookie";
-import { getUser, syncAppUser } from "./supabase";
+import { getUser, syncAppUser } from "./supabase.js";
 
 export type AppUser = {
   id: number;
