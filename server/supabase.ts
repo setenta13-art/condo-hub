@@ -22,7 +22,7 @@ function requireValue(value: string, name: string) {
 }
 
 function supabaseUrl() {
-  return requireValue(ENV.supabaseUrl, "SUPABASE_URL").replace(/\/$/, "");
+  return new URL(requireValue(ENV.supabaseUrl, "SUPABASE_URL")).origin;
 }
 
 function anonKey() {
