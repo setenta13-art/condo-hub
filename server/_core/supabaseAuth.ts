@@ -1,5 +1,5 @@
 import type { Express, Request, Response } from "express";
-import { getSupabaseAuth } from "../supabase";
+import { signInWithPassword, signUpWithPassword } from "../supabase";
 
 const COOKIE = "sb-access-token";
 const cookieOptions = {
@@ -16,12 +16,17 @@ export function registerSupabaseAuthRoutes(app: Express) {
       res.status(400).json({ error: "E-mail e senha são obrigatórios." });
       return;
     }
-    const { data, error } = await getSupabaseAuth().auth.signInWithPassword({ email, password });
+
+    const { data, error } = await signInWithPassword(email, password);
     if (error || !data.session) {
       res.status(401).json({ error: error?.message ?? "Não foi possível entrar." });
       return;
     }
-    res.cookie(COOKIE, data.session.access_token, { ...cookieOptions, maxAge: data.session.expires_in * 1000 });
+
+    res.cookie(COOKIE, data.session.access_token, {
+      ...cookieOptions,
+      maxAge: data.session.expires_in * 1000,
+    });
     res.json({ user: data.user, expiresIn: data.session.expires_in });
   });
 
@@ -31,19 +36,27 @@ export function registerSupabaseAuthRoutes(app: Express) {
       res.status(400).json({ error: "E-mail e senha são obrigatórios." });
       return;
     }
-    const { data, error } = await getSupabaseAuth().auth.signUp({
+
+    const { data, error } = await signUpWithPassword(
       email,
       password,
-      options: { data: { name: typeof name === "string" ? name : undefined } },
-    });
+      typeof name === "string" ? name : undefined,
+    );
     if (error) {
       res.status(400).json({ error: error.message });
       return;
     }
+
     if (data.session) {
-      res.cookie(COOKIE, data.session.access_token, { ...cookieOptions, maxAge: data.session.expires_in * 1000 });
+      res.cookie(COOKIE, data.session.access_token, {
+        ...cookieOptions,
+        maxAge: data.session.expires_in * 1000,
+      });
     }
-    res.status(201).json({ user: data.user, needsEmailConfirmation: !data.session });
+    res.status(201).json({
+      user: data.user,
+      needsEmailConfirmation: !data.session,
+    });
   });
 
   app.post("/api/auth/sign-out", (_req: Request, res: Response) => {
