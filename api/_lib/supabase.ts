@@ -113,6 +113,11 @@ export async function adminFetch(path: string, init: RequestInit = {}) {
 }
 
 export async function syncAppUser(authUser: AppAuthUser) {
+  const configuredAdminEmail = process.env.PLATFORM_ADMIN_EMAIL?.trim().toLowerCase();
+  const shouldBePlatformAdmin =
+    Boolean(configuredAdminEmail) &&
+    authUser.email?.trim().toLowerCase() === configuredAdminEmail;
+
   const payload = {
     auth_user_id: authUser.id,
     open_id: authUser.id,
@@ -120,6 +125,7 @@ export async function syncAppUser(authUser: AppAuthUser) {
     email: authUser.email ?? null,
     login_method: "supabase",
     last_signed_in: new Date().toISOString(),
+    ...(shouldBePlatformAdmin ? { role: "admin" } : {}),
   };
   const response = await adminFetch(
     "app_users?on_conflict=auth_user_id&select=id,open_id,name,email,login_method,role,created_at,updated_at,last_signed_in",
