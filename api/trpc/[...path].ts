@@ -12,6 +12,15 @@ async function getHandler() {
       initializationStage = "trpc_adapter";
       const { createExpressMiddleware } = await import("@trpc/server/adapters/express");
 
+      initializationStage = "shared_const";
+      await import("../../../shared/const");
+
+      initializationStage = "trpc_package";
+      await import("@trpc/server");
+
+      initializationStage = "superjson";
+      await import("superjson");
+
       initializationStage = "trpc_core";
       await import("../../../server/_core/trpc");
 
