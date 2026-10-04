@@ -1,9 +1,9 @@
 import { and, eq } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { announcements, documents, tickets } from "../../drizzle/schema";
-import { getAnnouncements, getDb, getDocuments, getTickets, getUnitCount, getUserScope } from "../db";
-import { protectedProcedure, router } from "../_core/trpc";
+import { announcements, documents, tickets } from "../../drizzle/schema.js";
+import { getAnnouncements, getDb, getDocuments, getTickets, getUnitCount, getUserScope } from "../db.js";
+import { protectedProcedure, router } from "../_core/trpc.js";
 
 const categoryAnnouncement = z.enum(["maintenance", "finance", "event", "general"]);
 const categoryTicket = z.enum(["maintenance", "security", "cleaning", "billing", "other"]);
