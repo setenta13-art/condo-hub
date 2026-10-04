@@ -1,8 +1,32 @@
-import { createClient, type SupabaseClient, type User as SupabaseAuthUser } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { ENV } from "./_core/env";
 
 let adminClient: SupabaseClient | null = null;
 let authClient: SupabaseClient | null = null;
+
+type SupabaseAuthUser = {
+  id: string;
+  email?: string | null;
+  user_metadata?: Record<string, unknown> | null;
+};
+
+type AuthResult = {
+  data: { user: SupabaseAuthUser | null; session: { access_token: string; expires_in: number } | null };
+  error: { message: string } | null;
+};
+
+type AuthFacade = {
+  signInWithPassword(credentials: { email: string; password: string }): Promise<AuthResult>;
+  signUp(input: {
+    email: string;
+    password: string;
+    options?: { data?: Record<string, unknown> };
+  }): Promise<AuthResult>;
+  getUser(accessToken: string): Promise<{
+    data: { user: SupabaseAuthUser | null };
+    error: { message: string } | null;
+  }>;
+};
 
 function assertConfig() {
   if (!ENV.supabaseUrl || !ENV.supabaseServiceRoleKey) {
@@ -32,10 +56,26 @@ export function getSupabaseAuth() {
   return authClient;
 }
 
+function authApi(client: SupabaseClient): AuthFacade {
+  return client.auth as unknown as AuthFacade;
+}
+
+export async function signInWithPassword(email: string, password: string) {
+  return authApi(getSupabaseAuth()).signInWithPassword({ email, password });
+}
+
+export async function signUpWithPassword(email: string, password: string, name?: string) {
+  return authApi(getSupabaseAuth()).signUp({
+    email,
+    password,
+    options: { data: { name } },
+  });
+}
+
 export type AppAuthUser = SupabaseAuthUser;
 
 export async function getSupabaseUser(accessToken: string) {
-  const { data, error } = await getSupabaseAdmin().auth.getUser(accessToken);
+  const { data, error } = await authApi(getSupabaseAdmin()).getUser(accessToken);
   if (error || !data.user) return null;
   return data.user;
 }
@@ -66,5 +106,5 @@ export async function upsertAppUser(authUser: AppAuthUser) {
     createdAt: new Date(data.created_at),
     updatedAt: new Date(data.updated_at),
     lastSignedIn: new Date(data.last_signed_in),
-  } as any;
+  };
 }
