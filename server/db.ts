@@ -125,6 +125,8 @@ export function mapTicket(row: any) {
     category: row.category,
     status: row.status,
     priority: row.priority,
+    block: row.block ?? null,
+    unit: row.unit ?? null,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
   };
@@ -217,12 +219,23 @@ export async function getAnnouncements(condominiumId: number) {
   return rows.map(mapAnnouncement);
 }
 
-export async function getTickets(condominiumId: number, userId: number, isStaff: boolean) {
-  const userFilter = isStaff ? "" : `&opened_by_id=eq.${userId}`;
+export async function getTickets(
+  condominiumId: number,
+  userId: number,
+  isStaff: boolean,
+  block?: string | null,
+  unit?: string | null,
+) {
   const rows = await request(
-    `tickets?condominium_id=eq.${condominiumId}${userFilter}&select=*&order=created_at.desc`,
+    `tickets?condominium_id=eq.${condominiumId}&select=*&order=created_at.desc`,
   ) as any[];
-  return rows.map(mapTicket);
+  const mapped = rows.map(mapTicket);
+  if (isStaff) return mapped;
+
+  return mapped.filter(ticket =>
+    ticket.openedById === userId ||
+    Boolean(unit && ticket.unit === unit && (block ? ticket.block === block : true)),
+  );
 }
 
 export async function getDocuments(condominiumId: number) {
@@ -276,6 +289,8 @@ export async function createTicket(input: {
   description: string;
   category: string;
   priority: string;
+  block?: string | null;
+  unit?: string | null;
 }) {
   await request("tickets", {
     method: "POST",
@@ -287,6 +302,8 @@ export async function createTicket(input: {
       description: input.description,
       category: input.category,
       priority: input.priority,
+      block: input.block ?? null,
+      unit: input.unit ?? null,
     }),
   });
 }
