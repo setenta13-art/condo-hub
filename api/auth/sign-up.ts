@@ -7,7 +7,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const { email, password, name } = req.body ?? {};
+  const { email, password, name, inviteToken } = req.body ?? {};
   if (typeof email !== "string" || typeof password !== "string") {
     res.status(400).json({ error: "E-mail e senha são obrigatórios." });
     return;
@@ -20,7 +20,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ? forwardedProto[0]
       : forwardedProto ?? "https";
     const host = headers.host;
-    const redirectTo = host ? `${protocol}://${host}/login` : undefined;
+    const safeInviteToken =
+      typeof inviteToken === "string" && /^[A-Za-z0-9_-]{20,96}$/.test(inviteToken)
+        ? inviteToken
+        : null;
+    const redirectTo = host
+      ? `${protocol}://${host}/login${safeInviteToken ? `?invite=${encodeURIComponent(safeInviteToken)}` : ""}`
+      : undefined;
 
     const { data, error } = await signUp(
       email,
