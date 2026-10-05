@@ -363,6 +363,16 @@ export async function listInvitations(condominiumId: number) {
   return rows.map(mapInvitation);
 }
 
+
+export async function listPendingInvitationsByEmail(email: string) {
+  const rows = await request(
+    `invitations?status=eq.pending&email=ilike.${encodeURIComponent(email)}&select=*&order=created_at.asc`,
+  ) as any[];
+  return rows
+    .map(mapInvitation)
+    .filter(invitation => invitation.expiresAt.getTime() > Date.now());
+}
+
 export async function listBlocks(condominiumId: number) {
   const rows = await request(
     `blocks?condominium_id=eq.${condominiumId}&select=*&order=name.asc`,
