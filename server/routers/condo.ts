@@ -57,7 +57,13 @@ export const condoRouter = router({
       const staff = isStaff(scope, ctx.user.role);
       const [announcementRows, ticketRows, documentRows, unitCount] = await Promise.all([
         getAnnouncements(scope.condominium.id),
-        getTickets(scope.condominium.id, ctx.user.id, staff),
+        getTickets(
+          scope.condominium.id,
+          ctx.user.id,
+          staff,
+          scope.membership?.block,
+          scope.membership?.unit,
+        ),
         getDocuments(scope.condominium.id),
         getUnitCount(scope.condominium.id),
       ]);
@@ -117,7 +123,13 @@ export const condoRouter = router({
   tickets: router({
     list: protectedProcedure.query(async ({ ctx }) => {
       const scope = await resolveScope(ctx.user);
-      return getTickets(scope.condominium.id, ctx.user.id, isStaff(scope, ctx.user.role));
+      return getTickets(
+        scope.condominium.id,
+        ctx.user.id,
+        isStaff(scope, ctx.user.role),
+        scope.membership?.block,
+        scope.membership?.unit,
+      );
     }),
 
     create: protectedProcedure
@@ -138,6 +150,8 @@ export const condoRouter = router({
           description: input.description,
           category: input.category,
           priority: input.priority,
+          block: scope.membership?.block ?? null,
+          unit: scope.membership?.unit ?? null,
         });
         return { success: true } as const;
       }),
