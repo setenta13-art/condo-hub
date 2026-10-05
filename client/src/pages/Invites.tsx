@@ -14,7 +14,7 @@ function formatDate(value: Date | string) {
 }
 
 export default function Invites() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const { data: overview } = trpc.condo.dashboard.overview.useQuery(undefined, { enabled: isAuthenticated });
   const isStaff = overview?.scope?.isStaff ?? false;
   const { data: invites, isLoading } = trpc.invitations.list.useQuery(undefined, { enabled: isAuthenticated && isStaff });
@@ -41,7 +41,8 @@ export default function Invites() {
   }
 
   if (!isStaff) {
-    return <div className="mx-auto max-w-xl rounded-2xl border border-border/80 bg-card p-8 text-center"><ShieldCheck className="mx-auto h-8 w-8 text-muted-foreground" /><h1 className="mt-4 text-xl font-extrabold">Acesso restrito</h1><p className="mt-2 text-sm text-muted-foreground">A geração de convites está disponível para gestores e funcionários autorizados.</p><Link href="/" className="mt-5 inline-flex text-sm font-bold text-primary">Voltar para a visão geral</Link></div>;
+    const isUnconfiguredPlatformAdmin = user?.role === "admin" && !overview?.scope;
+    return <div className="mx-auto max-w-xl rounded-2xl border border-border/80 bg-card p-8 text-center"><ShieldCheck className="mx-auto h-8 w-8 text-muted-foreground" /><h1 className="mt-4 text-xl font-extrabold">{isUnconfiguredPlatformAdmin ? "Configure o primeiro condomínio" : "Acesso restrito"}</h1><p className="mt-2 text-sm text-muted-foreground">{isUnconfiguredPlatformAdmin ? "Seu acesso de administrador está ativo. Cadastre a estrutura inicial para liberar convites e responsáveis." : "A geração de convites está disponível para gestores e funcionários autorizados."}</p><Link href={isUnconfiguredPlatformAdmin ? "/setup" : "/"} className="mt-5 inline-flex text-sm font-bold text-primary">{isUnconfiguredPlatformAdmin ? "Ir para configuração" : "Voltar para a visão geral"}</Link></div>;
   }
 
   return (
