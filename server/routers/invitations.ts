@@ -10,6 +10,7 @@ import {
   getUserScope,
   listBlocks,
   listInvitations,
+  listPendingInvitationsByEmail,
   listUnits,
   revokeInvitation,
 } from "../db.js";
@@ -88,6 +89,40 @@ export const invitationRouter = router({
           ? "expired"
           : invitation.status,
     }));
+  }),
+
+
+  pendingForMe: protectedProcedure.query(async ({ ctx }) => {
+    if (!ctx.user.email) return [];
+
+    const invitations = await listPendingInvitationsByEmail(ctx.user.email);
+    const result = [];
+
+    for (const invitation of invitations) {
+      const condominium = await getCondominiumById(invitation.condominiumId);
+      if (!condominium) continue;
+
+      const organization = await getOrganization(condominium.organizationId);
+      if (!organization) continue;
+
+      result.push({
+        token: invitation.token,
+        role: invitation.role,
+        block: invitation.block,
+        unit: invitation.unit,
+        expiresAt: invitation.expiresAt,
+        condominium: {
+          id: condominium.id,
+          name: condominium.name,
+        },
+        organization: {
+          id: organization.id,
+          name: organization.name,
+        },
+      });
+    }
+
+    return result;
   }),
 
   options: protectedProcedure.query(async ({ ctx }) => {
