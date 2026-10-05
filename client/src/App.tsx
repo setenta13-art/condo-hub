@@ -33,6 +33,14 @@ function Router() {
     if (pendingToken) navigate(`/invite/${pendingToken}`);
   }, [isAuthenticated, location, navigate]);
 
+  useEffect(() => {
+    if (!isAuthenticated || overview.isLoading || user?.role !== "admin") return;
+    if (overview.data?.scope) return;
+
+    const allowedWithoutScope = new Set(["/", "/setup", "/profile"]);
+    if (!allowedWithoutScope.has(location)) navigate("/setup");
+  }, [isAuthenticated, location, navigate, overview.data?.scope, overview.isLoading, user?.role]);
+
   if (location === "/invite" || location.startsWith("/invite/")) return <Invite />;
   if (location === "/login") return <Login />;
   if (loading || (isAuthenticated && overview.isLoading)) return <DashboardLayoutSkeleton />;
