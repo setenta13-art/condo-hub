@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 
 export default function Login() {
@@ -13,16 +13,28 @@ export default function Login() {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
+  useEffect(() => {
+    const inviteFromUrl = new URLSearchParams(window.location.search).get("invite");
+    if (inviteFromUrl) {
+      localStorage.setItem("condohub-pending-invite", inviteFromUrl);
+      sessionStorage.setItem("condohub-pending-invite", inviteFromUrl);
+    }
+  }, []);
+
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setBusy(true);
     setMessage("");
     const endpoint = mode === "login" ? "/api/auth/sign-in" : "/api/auth/sign-up";
+    const pendingInvite =
+      localStorage.getItem("condohub-pending-invite") ??
+      sessionStorage.getItem("condohub-pending-invite");
+
     const response = await fetch(endpoint, {
       method: "POST",
       headers: { "content-type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ email, password, name }),
+      body: JSON.stringify({ email, password, name, inviteToken: pendingInvite }),
     });
     const result = await response.json().catch(() => ({}));
     setBusy(false);
@@ -34,7 +46,11 @@ export default function Login() {
       setMessage("Cadastro criado. Confirme seu e-mail antes de entrar.");
       return;
     }
-    navigate("/");
+    if (pendingInvite) {
+      navigate(`/invite/${pendingInvite}`);
+    } else {
+      navigate("/");
+    }
     window.location.reload();
   }
 
