@@ -41,11 +41,11 @@ import { Button } from "./ui/button";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Visão geral", path: "/" },
-  { icon: Megaphone, label: "Comunicados", path: "/announcements" },
-  { icon: ClipboardList, label: "Chamados", path: "/tickets" },
-  { icon: FileText, label: "Documentos", path: "/documents" },
-  { icon: UsersRound, label: "Convites", path: "/invites" },
-  { icon: UsersRound, label: "Responsáveis", path: "/responsibles", managementOnly: true },
+  { icon: Megaphone, label: "Comunicados", path: "/announcements", requiresScope: true },
+  { icon: ClipboardList, label: "Chamados", path: "/tickets", requiresScope: true },
+  { icon: FileText, label: "Documentos", path: "/documents", requiresScope: true },
+  { icon: UsersRound, label: "Convites", path: "/invites", requiresScope: true, managementOnly: true },
+  { icon: UsersRound, label: "Responsáveis", path: "/responsibles", requiresScope: true, managementOnly: true },
   { icon: Settings2, label: "Configuração", path: "/setup", managementOnly: true, platformOnly: true },
 ];
 
@@ -87,8 +87,14 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
+  const hasScope = Boolean(overview?.scope);
   const canManage = user?.role === "admin" || ["staff", "manager", "admin"].includes(overview?.scope?.membership?.role ?? "");
-  const visibleMenuItems = menuItems.filter(item => (!item.managementOnly || canManage) && (!item.platformOnly || user?.role === "admin"));
+  const visibleMenuItems = menuItems.filter(
+    item =>
+      (!item.requiresScope || hasScope) &&
+      (!item.managementOnly || canManage) &&
+      (!item.platformOnly || user?.role === "admin"),
+  );
   const activeMenuItem = visibleMenuItems.find(item => item.path === location) ?? visibleMenuItems[0];
   const isMobile = useIsMobile();
 
@@ -182,7 +188,9 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
                     </Avatar>
                     <div className="min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
                       <p className="truncate text-sm font-semibold leading-none">{displayName}</p>
-                      <p className="mt-1.5 truncate text-xs text-muted-foreground">{user.email || "Morador"}</p>
+                      <p className="mt-1.5 truncate text-xs text-muted-foreground">
+                        {user.role === "admin" ? "Administrador da plataforma" : user.email || "Morador"}
+                      </p>
                     </div>
                   </button>
                 </DropdownMenuTrigger>
