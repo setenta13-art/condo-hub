@@ -6,11 +6,6 @@ import { CheckCircle2, ClipboardList, Clock3, Loader2, Plus, Send, ShieldCheck, 
 import { useState } from "react";
 import { Link } from "wouter";
 
-const demoTickets = [
-  { id: 21, title: "Luz do corredor do 3º andar", description: "A lâmpada está piscando desde ontem à noite.", category: "maintenance", status: "in_progress", priority: "medium", createdAt: new Date("2026-09-24T13:00:00Z") },
-  { id: 22, title: "Vazamento próximo à garagem", description: "Há água acumulada perto da vaga 18.", category: "maintenance", status: "open", priority: "high", createdAt: new Date("2026-09-23T13:00:00Z") },
-  { id: 23, title: "Dúvida sobre taxa extra", description: "Gostaria de entender o lançamento deste mês.", category: "billing", status: "resolved", priority: "low", createdAt: new Date("2026-09-16T13:00:00Z") },
-];
 const categories: Record<string, string> = { maintenance: "Manutenção", security: "Segurança", cleaning: "Limpeza", billing: "Financeiro", other: "Outro" };
 const statuses: Record<string, string> = { open: "Aberto", in_progress: "Em andamento", resolved: "Resolvido" };
 const priorities: Record<string, string> = { low: "Baixa", medium: "Média", high: "Alta" };
@@ -29,7 +24,7 @@ export default function Tickets() {
   const [filter, setFilter] = useState("all");
   const [submitted, setSubmitted] = useState(false);
   const [form, setForm] = useState({ title: "", description: "", category: "maintenance" as "maintenance" | "security" | "cleaning" | "billing" | "other", priority: "medium" as "low" | "medium" | "high" });
-  const tickets = data ?? demoTickets;
+  const tickets = data ?? [];
   const isStaff = overview?.scope?.isStaff ?? false;
   const filtered = filter === "all" ? tickets : tickets.filter(ticket => ticket.status === filter);
 
