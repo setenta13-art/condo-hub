@@ -12,6 +12,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [recovering, setRecovering] = useState(false);
 
   useEffect(() => {
     const inviteFromUrl = new URLSearchParams(window.location.search).get("invite");
@@ -39,7 +40,12 @@ export default function Login() {
     const result = await response.json().catch(() => ({}));
     setBusy(false);
     if (!response.ok) {
-      setMessage(result.error ?? "Não foi possível concluir a operação.");
+      const rawError = String(result.error ?? "");
+      const friendlyError =
+        rawError.toLowerCase().includes("invalid login credentials")
+          ? "E-mail ou senha inválidos. Se você acabou de confirmar o cadastro, confira a senha digitada ou use “Esqueci minha senha”."
+          : rawError || "Não foi possível concluir a operação.";
+      setMessage(friendlyError);
       return;
     }
     if (result.needsEmailConfirmation) {
@@ -54,6 +60,30 @@ export default function Login() {
     window.location.reload();
   }
 
+  async function recoverPassword() {
+    if (!email.trim()) {
+      setMessage("Informe seu e-mail para receber o link de recuperação.");
+      return;
+    }
+
+    setRecovering(true);
+    setMessage("");
+    const response = await fetch("/api/auth/recover", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: email.trim() }),
+    });
+    const result = await response.json().catch(() => ({}));
+    setRecovering(false);
+
+    if (!response.ok) {
+      setMessage(result.error ?? "Não foi possível enviar a recuperação.");
+      return;
+    }
+
+    setMessage("Enviamos um link para redefinir sua senha. Depois da alteração, volte e entre normalmente.");
+  }
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#f7f8fc] px-5 py-10">
       <section className="w-full max-w-md rounded-3xl border border-border bg-card p-7 shadow-xl sm:p-9">
@@ -65,8 +95,18 @@ export default function Login() {
           <div className="space-y-2"><Label htmlFor="email">E-mail</Label><Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required /></div>
           <div className="space-y-2"><Label htmlFor="password">Senha</Label><Input id="password" type="password" minLength={6} value={password} onChange={e => setPassword(e.target.value)} required /></div>
           {message && <p className="rounded-xl bg-muted px-3 py-2 text-sm text-muted-foreground">{message}</p>}
-          <Button type="submit" disabled={busy} className="w-full rounded-xl">{busy ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar acesso"}</Button>
+          <Button type="submit" disabled={busy || recovering} className="w-full rounded-xl">{busy ? "Aguarde..." : mode === "login" ? "Entrar" : "Criar acesso"}</Button>
         </form>
+        {mode === "login" && (
+          <button
+            type="button"
+            onClick={recoverPassword}
+            disabled={recovering}
+            className="mt-4 w-full text-center text-sm font-semibold text-primary hover:underline disabled:opacity-50"
+          >
+            {recovering ? "Enviando recuperação..." : "Esqueci minha senha"}
+          </button>
+        )}
         <button type="button" onClick={() => { setMode(mode === "login" ? "signup" : "login"); setMessage(""); }} className="mt-5 w-full text-center text-sm font-semibold text-primary hover:underline">
           {mode === "login" ? "Ainda não tenho acesso" : "Já tenho uma conta"}
         </button>
