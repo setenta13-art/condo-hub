@@ -158,3 +158,45 @@ export async function syncAppUser(authUser: AppAuthUser) {
     lastSignedIn: new Date(data.last_signed_in),
   };
 }
+
+
+export async function sendPasswordRecovery(email: string, redirectTo?: string) {
+  const key = requireEnv("SUPABASE_ANON_KEY");
+  const url = new URL(`${baseUrl()}/auth/v1/recover`);
+  if (redirectTo) url.searchParams.set("redirect_to", redirectTo);
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email }),
+  });
+
+  const payload = await json(response);
+  return {
+    ok: response.ok,
+    error: response.ok ? null : errorMessage(payload, "Não foi possível enviar a recuperação."),
+  };
+}
+
+export async function updatePassword(accessToken: string, password: string) {
+  const key = requireEnv("SUPABASE_ANON_KEY");
+  const response = await fetch(`${baseUrl()}/auth/v1/user`, {
+    method: "PUT",
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ password }),
+  });
+
+  const payload = await json(response);
+  return {
+    ok: response.ok,
+    error: response.ok ? null : errorMessage(payload, "Não foi possível atualizar a senha."),
+  };
+}
