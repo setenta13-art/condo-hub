@@ -11,6 +11,7 @@ import NotFound from "@/pages/NotFound";
 import Profile from "@/pages/Profile";
 import PublicHome from "@/pages/PublicHome";
 import Responsibles from "@/pages/Responsibles";
+import ResetPassword from "@/pages/ResetPassword";
 import Setup from "@/pages/Setup";
 import Tickets from "@/pages/Tickets";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -43,6 +44,7 @@ function Router() {
 
   if (location === "/invite" || location.startsWith("/invite/")) return <Invite />;
   if (location === "/login") return <Login />;
+  if (location === "/reset-password") return <ResetPassword />;
   if (loading || (isAuthenticated && overview.isLoading)) return <DashboardLayoutSkeleton />;
   if (!isAuthenticated) return <PublicHome />;
   if (user?.role !== "admin" && overview.data && !overview.data.scope) return <AccessPending />;
