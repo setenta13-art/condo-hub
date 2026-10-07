@@ -13,8 +13,8 @@ import { z } from "zod";
 
 const membershipRole = z.enum(["resident", "staff", "manager", "admin"]);
 
-async function getManagementScope(user: { id: number; role: string }) {
-  const scope = await getUserScope(user.id, user.role === "admin");
+async function getManagementScope(user: { id: number; role: string }, activeMembershipId?: number | null) {
+  const scope = await getUserScope(user.id, user.role === "admin", activeMembershipId);
   const allowed =
     user.role === "admin" ||
     ["staff", "manager", "admin"].includes(scope?.membership?.role ?? "");
@@ -29,7 +29,7 @@ async function getManagementScope(user: { id: number; role: string }) {
 
 export const responsiblesRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
-    const scope = await getManagementScope(ctx.user);
+    const scope = await getManagementScope(ctx.user, ctx.activeMembershipId);
     if (!scope) return [];
 
     const memberships = await listMemberships(scope.condominium.id);
@@ -57,7 +57,7 @@ export const responsiblesRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const scope = await getManagementScope(ctx.user);
+      const scope = await getManagementScope(ctx.user, ctx.activeMembershipId);
       if (!scope) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
@@ -131,7 +131,7 @@ export const responsiblesRouter = router({
   remove: protectedProcedure
     .input(z.object({ id: z.number().int() }))
     .mutation(async ({ ctx, input }) => {
-      const scope = await getManagementScope(ctx.user);
+      const scope = await getManagementScope(ctx.user, ctx.activeMembershipId);
       if (!scope) {
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
