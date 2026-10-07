@@ -238,7 +238,8 @@ export const invitationRouter = router({
 
       const headers = (ctx.req as any).headers ?? {};
       const proto = Array.isArray(headers["x-forwarded-proto"]) ? headers["x-forwarded-proto"][0] : headers["x-forwarded-proto"] ?? "https";
-      const origin = headers.host ? `${proto}://${headers.host}` : "";
+      const configuredBaseUrl = process.env.APP_BASE_URL?.trim().replace(/\/+$/, "");
+      const origin = configuredBaseUrl || (headers.host ? `${proto}://${headers.host}` : "");
       const inviteUrl = `${origin}/invite/${token}`;
       const delivery = normalizedEmail
         ? await sendInviteEmail({
@@ -287,7 +288,8 @@ export const invitationRouter = router({
 
       const headers = (ctx.req as any).headers ?? {};
       const proto = Array.isArray(headers["x-forwarded-proto"]) ? headers["x-forwarded-proto"][0] : headers["x-forwarded-proto"] ?? "https";
-      const origin = headers.host ? `${proto}://${headers.host}` : "";
+      const configuredBaseUrl = process.env.APP_BASE_URL?.trim().replace(/\/+$/, "");
+      const origin = configuredBaseUrl || (headers.host ? `${proto}://${headers.host}` : "");
       const inviteUrl = `${origin}/invite/${token}`;
       const delivery = replacement.email
         ? await sendInviteEmail({
