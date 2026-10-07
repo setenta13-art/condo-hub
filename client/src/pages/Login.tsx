@@ -59,7 +59,11 @@ export default function Login() {
       setMessage("Cadastro criado. Confirme seu e-mail antes de entrar.");
       return;
     }
-    if (pendingInvite) {
+    if (result.inviteAccepted) {
+      localStorage.removeItem("condohub-pending-invite");
+      sessionStorage.removeItem("condohub-pending-invite");
+      navigate("/");
+    } else if (pendingInvite) {
       navigate(`/invite/${pendingInvite}`);
     } else {
       navigate("/");
