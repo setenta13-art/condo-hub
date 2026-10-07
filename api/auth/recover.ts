@@ -16,8 +16,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     typeof inviteToken === "string" && /^[A-Za-z0-9_-]{20,96}$/.test(inviteToken)
       ? inviteToken
       : null;
-  const redirectTo = host
-    ? `${proto}://${host}/reset-password${safeInvite ? `?invite=${encodeURIComponent(safeInvite)}` : ""}`
+  const configuredBaseUrl = process.env.APP_BASE_URL?.trim().replace(/\/+$/, "");
+  const origin = configuredBaseUrl || (host ? `${proto}://${host}` : undefined);
+  const redirectTo = origin
+    ? `${origin}/reset-password${safeInvite ? `?invite=${encodeURIComponent(safeInvite)}` : ""}`
     : undefined;
 
   const result = await sendPasswordRecovery(email.trim().toLowerCase(), redirectTo);
