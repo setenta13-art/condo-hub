@@ -29,14 +29,21 @@ export default function AuthCallback() {
         method: "POST",
         headers: { "content-type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ accessToken, refreshToken, expiresIn }),
+        body: JSON.stringify({ accessToken, refreshToken, expiresIn, inviteToken: invite }),
       });
+      const result = await response.json().catch(() => ({}));
       if (!response.ok) {
         setMessage("Este link é inválido ou expirou. Solicite um novo convite.");
         return;
       }
 
       history.replaceState(null, "", "/auth/callback");
+      if (result.inviteAccepted) {
+        localStorage.removeItem("condohub-pending-invite");
+        sessionStorage.removeItem("condohub-pending-invite");
+        window.location.href = "/";
+        return;
+      }
       window.location.href = invite ? `/invite/${invite}` : "/";
     })();
   }, []);
