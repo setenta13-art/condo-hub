@@ -6,7 +6,7 @@ export type AppAuthUser = {
 
 type AuthSession = {
   access_token: string;
-  refresh_token?: string;
+  refresh_token: string;
   expires_in: number;
 };
 
@@ -39,22 +39,6 @@ function errorMessage(payload: any, fallback: string) {
   return payload?.msg ?? payload?.message ?? payload?.error_description ?? payload?.error ?? fallback;
 }
 
-function toAuthResult(payload: any): AuthResult {
-  return {
-    data: {
-      user: payload?.user ?? null,
-      session: payload?.access_token && payload?.expires_in
-        ? {
-            access_token: payload.access_token,
-            refresh_token: payload.refresh_token,
-            expires_in: payload.expires_in,
-          }
-        : null,
-    },
-    error: null,
-  };
-}
-
 export async function signIn(email: string, password: string): Promise<AuthResult> {
   const key = requireEnv("SUPABASE_ANON_KEY");
   const response = await fetch(`${baseUrl()}/auth/v1/token?grant_type=password`, {
@@ -70,25 +54,15 @@ export async function signIn(email: string, password: string): Promise<AuthResul
   if (!response.ok) {
     return { data: { user: null, session: null }, error: { message: errorMessage(payload, "Não foi possível entrar.") } };
   }
-  return toAuthResult(payload);
-}
-
-export async function refreshSession(refreshToken: string): Promise<AuthResult> {
-  const key = requireEnv("SUPABASE_ANON_KEY");
-  const response = await fetch(`${baseUrl()}/auth/v1/token?grant_type=refresh_token`, {
-    method: "POST",
-    headers: {
-      apikey: key,
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
+  return {
+    data: {
+      user: payload?.user ?? null,
+      session: payload?.access_token && payload?.expires_in
+        ? { access_token: payload.access_token, refresh_token: payload.refresh_token, expires_in: payload.expires_in }
+        : null,
     },
-    body: JSON.stringify({ refresh_token: refreshToken }),
-  });
-  const payload = await json(response);
-  if (!response.ok) {
-    return { data: { user: null, session: null }, error: { message: errorMessage(payload, "Sessão expirada.") } };
-  }
-  return toAuthResult(payload);
+    error: null,
+  };
 }
 
 export async function signUp(
@@ -114,7 +88,15 @@ export async function signUp(
   if (!response.ok) {
     return { data: { user: null, session: null }, error: { message: errorMessage(payload, "Não foi possível criar a conta.") } };
   }
-  return toAuthResult(payload);
+  return {
+    data: {
+      user: payload?.user ?? payload ?? null,
+      session: payload?.access_token && payload?.expires_in
+        ? { access_token: payload.access_token, refresh_token: payload.refresh_token, expires_in: payload.expires_in }
+        : null,
+    },
+    error: null,
+  };
 }
 
 export async function getUser(accessToken: string): Promise<AppAuthUser | null> {
@@ -178,6 +160,7 @@ export async function syncAppUser(authUser: AppAuthUser) {
   };
 }
 
+
 export async function sendPasswordRecovery(email: string, redirectTo?: string) {
   const key = requireEnv("SUPABASE_ANON_KEY");
   const url = new URL(`${baseUrl()}/auth/v1/recover`);
@@ -217,4 +200,49 @@ export async function updatePassword(accessToken: string, password: string) {
     ok: response.ok,
     error: response.ok ? null : errorMessage(payload, "Não foi possível atualizar a senha."),
   };
+}
+
+
+export async function refreshSession(refreshToken: string): Promise<AuthResult> {
+  const key = requireEnv("SUPABASE_ANON_KEY");
+  const response = await fetch(`${baseUrl()}/auth/v1/token?grant_type=refresh_token`, {
+    method: "POST",
+    headers: {
+      apikey: key,
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  });
+  const payload = await json(response);
+  if (!response.ok) {
+    return { data: { user: null, session: null }, error: { message: errorMessage(payload, "Sessão expirada.") } };
+  }
+  return {
+    data: {
+      user: payload?.user ?? null,
+      session: payload?.access_token && payload?.refresh_token && payload?.expires_in
+        ? { access_token: payload.access_token, refresh_token: payload.refresh_token, expires_in: payload.expires_in }
+        : null,
+    },
+    error: null,
+  };
+}
+
+export async function validateInvitationForSignup(token: string, email: string) {
+  const response = await adminFetch(
+    `invitations?token=eq.${encodeURIComponent(token)}&select=id,email,status,expires_at&limit=1`,
+  );
+  const payload = await json(response);
+  const invitation = Array.isArray(payload) ? payload[0] : null;
+  if (!response.ok || !invitation) return { ok: false, error: "Convite inválido ou não encontrado." } as const;
+  if (invitation.status !== "pending") return { ok: false, error: "Este convite não está mais disponível." } as const;
+  if (new Date(invitation.expires_at).getTime() <= Date.now()) {
+    return { ok: false, error: "Este convite expirou. Solicite um novo link à administração." } as const;
+  }
+  const invitedEmail = typeof invitation.email === "string" ? invitation.email.trim().toLowerCase() : "";
+  if (invitedEmail && invitedEmail !== email.trim().toLowerCase()) {
+    return { ok: false, error: "Use o mesmo e-mail informado no convite." } as const;
+  }
+  return { ok: true } as const;
 }
