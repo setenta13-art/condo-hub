@@ -84,6 +84,11 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
   const { user, logout } = useAuth();
   const { data: overview } = trpc.condo.dashboard.overview.useQuery(undefined, { enabled: Boolean(user) });
   const { data: contexts } = trpc.auth.contexts.useQuery(undefined, { enabled: Boolean(user) });
+  const { data: unreadNotifications = 0 } = trpc.condo.notifications.unreadCount.useQuery(undefined, { enabled: Boolean(user) && Boolean(overview?.scope), refetchInterval: 30000 });
+  const utils = trpc.useUtils();
+  const markAllNotificationsRead = trpc.condo.notifications.markAllRead.useMutation({
+    onSuccess: () => utils.condo.notifications.unreadCount.invalidate(),
+  });
   const switchContext = trpc.auth.switchContext.useMutation({
     onSuccess: () => { window.location.href = "/"; },
   });
@@ -208,12 +213,21 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
                   <SidebarMenuItem key={item.path}>
                     <SidebarMenuButton
                       isActive={isActive}
-                      onClick={() => { setLocation(item.path); if (isMobile && !isCollapsed) toggleSidebar(); }}
+                      onClick={() => {
+                        setLocation(item.path);
+                        if (item.path === "/tickets" && unreadNotifications > 0) markAllNotificationsRead.mutate();
+                        if (isMobile && !isCollapsed) toggleSidebar();
+                      }}
                       tooltip={item.label}
                       className="h-11 rounded-xl font-medium transition-all"
                     >
                       <item.icon className={`h-[17px] w-[17px] ${isActive ? "text-primary" : "text-muted-foreground"}`} />
                       <span>{item.label}</span>
+                      {item.path === "/tickets" && unreadNotifications > 0 && (
+                        <span className="ml-auto flex min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-extrabold text-destructive-foreground">
+                          {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                        </span>
+                      )}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
