@@ -32,8 +32,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
-    const redirectTo = host
-      ? `${protocol}://${host}/auth/callback?invite=${encodeURIComponent(safeInviteToken)}`
+    const configuredBaseUrl = process.env.APP_BASE_URL?.trim().replace(/\/+$/, "");
+    const origin = configuredBaseUrl || (host ? `${protocol}://${host}` : undefined);
+    const redirectTo = origin
+      ? `${origin}/auth/callback?invite=${encodeURIComponent(safeInviteToken)}`
       : undefined;
 
     const { data, error } = await signUp(
