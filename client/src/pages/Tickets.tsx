@@ -156,7 +156,7 @@ export default function Tickets() {
           </div>
           <div className="space-y-3">
             {filtered.map(ticket => {
-              const responsible = ticket.assignedToId ? responsibleById.get(ticket.assignedToId) : null;
+              const responsible = ticket.assignedTo ?? (ticket.assignedToId ? responsibleById.get(ticket.assignedToId) : null);
               return (
                 <button key={ticket.id} onClick={() => setSelectedId(ticket.id)} className="block w-full rounded-xl border border-border/70 p-4 text-left transition hover:border-primary/40 hover:bg-muted/20">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -170,7 +170,11 @@ export default function Tickets() {
                         <p className="mt-2 text-[10px] font-semibold text-muted-foreground">
                           {ticket.unit ? `${ticket.block ? ticket.block + " · " : ""}Unidade ${ticket.unit}` : "Chamado geral"} · {categories[ticket.category]} · {formatDate(ticket.createdAt)}
                         </p>
-                        <p className="mt-1 text-[10px] font-semibold text-primary">Responsável: {responsible?.name || responsible?.email || "Não identificado"}</p>
+                        <p className="mt-1 text-[10px] font-semibold text-muted-foreground">Solicitante: {ticket.openedBy?.name || ticket.openedBy?.email || "Não identificado"}</p>
+                        <p className={`mt-1 text-[10px] font-semibold ${responsible && "active" in responsible && responsible.active === false ? "text-destructive" : "text-primary"}`}>
+                          Responsável: {responsible?.name || responsible?.email || "Não identificado"}
+                          {responsible && "active" in responsible && responsible.active === false ? " · inativo — requer nova atribuição" : ""}
+                        </p>
                       </div>
                     </div>
                     <span className="w-fit rounded-full bg-muted px-2.5 py-1 text-[10px] font-bold">{statuses[ticket.status] ?? ticket.status}</span>
@@ -194,7 +198,7 @@ export default function Tickets() {
                 <Info label="Prioridade" value={priorities[selected.priority]} />
                 <Info label="Solicitante" value={detail.data.openedBy?.name || detail.data.openedBy?.email || "Não identificado"} />
                 <Info label="Unidade" value={selected.unit ? `${selected.block ? selected.block + " · " : ""}Unidade ${selected.unit}` : "Geral do condomínio"} />
-                <Info label="Responsável" value={detail.data.assignedTo?.name || detail.data.assignedTo?.email || "Não atribuído"} />
+                <Info label="Responsável" value={detail.data.assignedTo ? `${detail.data.assignedTo.name || detail.data.assignedTo.email || "Não identificado"}${detail.data.assignedTo.active ? "" : " · inativo — requer nova atribuição"}` : "Não atribuído"} />
                 <Info label="Aberto em" value={formatDateTime(selected.createdAt)} />
               </div>
 
