@@ -241,6 +241,18 @@ export async function getAnnouncements(condominiumId: number) {
   return rows.map(mapAnnouncement);
 }
 
+export async function closeResolvedTickets(condominiumId: number) {
+  const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  await request(
+    `tickets?condominium_id=eq.${condominiumId}&status=eq.resolved&resolved_at=lt.${encodeURIComponent(cutoff)}`,
+    {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ status: "closed", closed_at: new Date().toISOString() }),
+    },
+  );
+}
+
 export async function getTickets(
   condominiumId: number,
   userId: number,
