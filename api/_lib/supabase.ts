@@ -229,6 +229,42 @@ export async function refreshSession(refreshToken: string): Promise<AuthResult> 
   };
 }
 
+export type InvitationAcceptanceResult = {
+  ok: boolean;
+  code?: string;
+  message?: string;
+  condominiumId?: number | string;
+  membershipId?: number | string;
+};
+
+export async function acceptInvitationForUser(
+  token: string,
+  appUserId: number,
+  email?: string | null,
+): Promise<InvitationAcceptanceResult> {
+  if (!/^[A-Za-z0-9_-]{20,96}$/.test(token)) {
+    return { ok: false, code: "INVALID_TOKEN", message: "Convite inválido." };
+  }
+
+  const response = await adminFetch("rpc/accept_invitation", {
+    method: "POST",
+    body: JSON.stringify({
+      p_token: token,
+      p_user_id: appUserId,
+      p_user_email: email?.trim().toLowerCase() || null,
+    }),
+  });
+  const payload = await json(response);
+  if (!response.ok) {
+    return {
+      ok: false,
+      code: "RPC_ERROR",
+      message: errorMessage(payload, "Não foi possível ativar o convite."),
+    };
+  }
+  return (payload ?? { ok: false, code: "EMPTY_RESPONSE", message: "Não foi possível ativar o convite." }) as InvitationAcceptanceResult;
+}
+
 export async function validateInvitationForSignup(token: string, email: string) {
   const response = await adminFetch(
     `invitations?token=eq.${encodeURIComponent(token)}&select=id,email,status,expires_at&limit=1`,
