@@ -37,5 +37,7 @@ export async function sendInviteEmail(input: InviteEmailInput) {
 export function normalizePhone(value?: string | null) {
   const digits = (value ?? "").replace(/\D/g, "");
   if (!digits) return null;
-  return digits.startsWith("55") ? digits : `55${digits}`;
+
+  const withCountry = digits.startsWith("55") ? digits : `55${digits}`;
+  return /^55\d{10,11}$/.test(withCountry) ? withCountry : null;
 }

@@ -202,7 +202,23 @@ export const invitationRouter = router({
       }
 
       const normalizedEmail = input.email?.trim().toLowerCase() || null;
-      const normalizedPhone = normalizePhone(input.phone);
+      const rawPhone = input.phone?.trim() || "";
+      const normalizedPhone = normalizePhone(rawPhone);
+
+      if (rawPhone && !normalizedPhone) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Informe um WhatsApp válido com DDD.",
+        });
+      }
+
+      if (!normalizedEmail && !normalizedPhone) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Informe pelo menos um canal de envio: e-mail ou WhatsApp.",
+        });
+      }
+
       const currentInvites = await listInvitations(scope.condominium.id);
       const duplicate = currentInvites.find(row =>
         row.status === "pending" &&
