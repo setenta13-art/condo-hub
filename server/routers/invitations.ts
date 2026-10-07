@@ -15,11 +15,12 @@ import {
   revokeInvitation,
 } from "../db.js";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc.js";
+import { normalizePhone, sendInviteEmail } from "../_core/inviteDelivery.js";
 
 const invitationRole = z.enum(["resident", "staff", "manager"]);
 
-async function getStaffScope(user: { id: number; role: string }) {
-  const scope = await getUserScope(user.id, user.role === "admin");
+async function getStaffScope(user: { id: number; role: string }, activeMembershipId?: number | null) {
+  const scope = await getUserScope(user.id, user.role === "admin", activeMembershipId);
   const allowed =
     user.role === "admin" ||
     ["staff", "manager", "admin"].includes(scope?.membership?.role ?? "");
@@ -77,7 +78,7 @@ export const invitationRouter = router({
     }),
 
   list: protectedProcedure.query(async ({ ctx }) => {
-    const scope = await getStaffScope(ctx.user);
+    const scope = await getStaffScope(ctx.user, ctx.activeMembershipId);
     const rows = await listInvitations(scope.condominium.id);
     const now = Date.now();
 
@@ -126,7 +127,7 @@ export const invitationRouter = router({
   }),
 
   options: protectedProcedure.query(async ({ ctx }) => {
-    const scope = await getStaffScope(ctx.user);
+    const scope = await getStaffScope(ctx.user, ctx.activeMembershipId);
     const [blocks, units] = await Promise.all([
       listBlocks(scope.condominium.id),
       listUnits(scope.condominium.id, true),
@@ -138,14 +139,14 @@ export const invitationRouter = router({
     .input(
       z.object({
         email: z.string().email().optional().or(z.literal("")),
+        phone: z.string().max(30).optional().or(z.literal("")),
         role: invitationRole.default("resident"),
         unit: z.string().max(40).optional(),
         block: z.string().max(40).optional(),
-        expiresInDays: z.number().int().min(1).max(30).default(7),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const scope = await getStaffScope(ctx.user);
+      const scope = await getStaffScope(ctx.user, ctx.activeMembershipId);
       const blocks = await listBlocks(scope.condominium.id);
       const units = await listUnits(scope.condominium.id, true);
 
@@ -200,14 +201,34 @@ export const invitationRouter = router({
         }
       }
 
-      const token = nanoid(32);
-      const expiresAt = new Date(
-        Date.now() + input.expiresInDays * 24 * 60 * 60 * 1000,
+      const normalizedEmail = input.email?.trim().toLowerCase() || null;
+      const normalizedPhone = normalizePhone(input.phone);
+      const currentInvites = await listInvitations(scope.condominium.id);
+      const duplicate = currentInvites.find(row =>
+        row.status === "pending" &&
+        row.expiresAt.getTime() > Date.now() &&
+        row.role === input.role &&
+        (row.block ?? null) === canonicalBlock &&
+        (row.unit ?? null) === requestedUnit &&
+        (
+          (normalizedEmail && row.email?.trim().toLowerCase() === normalizedEmail) ||
+          (normalizedPhone && row.phone === normalizedPhone)
+        )
       );
+      if (duplicate) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "Já existe um convite pendente para este acesso. Use Reenviar para gerar um novo link.",
+        });
+      }
+
+      const token = nanoid(32);
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       const invitation = await createInvitation({
         condominiumId: scope.condominium.id,
         createdById: ctx.user.id,
-        email: input.email?.trim() || null,
+        email: normalizedEmail,
+        phone: normalizedPhone,
         token,
         role: input.role,
         unit: requestedUnit,
@@ -215,19 +236,83 @@ export const invitationRouter = router({
         expiresAt,
       });
 
+      const headers = (ctx.req as any).headers ?? {};
+      const proto = Array.isArray(headers["x-forwarded-proto"]) ? headers["x-forwarded-proto"][0] : headers["x-forwarded-proto"] ?? "https";
+      const origin = headers.host ? `${proto}://${headers.host}` : "";
+      const inviteUrl = `${origin}/invite/${token}`;
+      const delivery = normalizedEmail
+        ? await sendInviteEmail({
+            to: normalizedEmail,
+            condominiumName: scope.condominium.name,
+            inviteUrl,
+            expiresAt,
+          })
+        : { status: "not_requested" as const };
+
       return {
         id: invitation.id,
         token,
         expiresAt,
         email: invitation.email,
+        phone: invitation.phone,
         condominiumName: scope.condominium.name,
+        emailDelivery: delivery.status,
+      };
+    }),
+
+  resend: protectedProcedure
+    .input(z.object({ id: z.number().int() }))
+    .mutation(async ({ ctx, input }) => {
+      const scope = await getStaffScope(ctx.user, ctx.activeMembershipId);
+      const rows = await listInvitations(scope.condominium.id);
+      const previous = rows.find(row => row.id === input.id);
+      if (!previous || previous.status !== "pending") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Apenas convites pendentes podem ser reenviados." });
+      }
+
+      await revokeInvitation(previous.id, scope.condominium.id);
+      const token = nanoid(32);
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      const replacement = await createInvitation({
+        condominiumId: scope.condominium.id,
+        createdById: ctx.user.id,
+        email: previous.email?.trim().toLowerCase() || null,
+        phone: previous.phone ?? null,
+        token,
+        role: previous.role,
+        unit: previous.unit,
+        block: previous.block,
+        expiresAt,
+      });
+
+      const headers = (ctx.req as any).headers ?? {};
+      const proto = Array.isArray(headers["x-forwarded-proto"]) ? headers["x-forwarded-proto"][0] : headers["x-forwarded-proto"] ?? "https";
+      const origin = headers.host ? `${proto}://${headers.host}` : "";
+      const inviteUrl = `${origin}/invite/${token}`;
+      const delivery = replacement.email
+        ? await sendInviteEmail({
+            to: replacement.email,
+            condominiumName: scope.condominium.name,
+            inviteUrl,
+            expiresAt,
+          })
+        : { status: "not_requested" as const };
+
+      return {
+        id: replacement.id,
+        token,
+        expiresAt,
+        email: replacement.email,
+        phone: replacement.phone,
+        condominiumName: scope.condominium.name,
+        emailDelivery: delivery.status,
       };
     }),
 
   revoke: protectedProcedure
     .input(z.object({ id: z.number().int() }))
     .mutation(async ({ ctx, input }) => {
-      const scope = await getStaffScope(ctx.user);
+      const scope = await getStaffScope(ctx.user, ctx.activeMembershipId);
       await revokeInvitation(input.id, scope.condominium.id);
       return { success: true } as const;
     }),
@@ -244,6 +329,7 @@ export const invitationRouter = router({
         code?: string;
         message?: string;
         condominiumId?: number | string;
+        membershipId?: number | string;
       };
 
       if (!result?.ok) {
@@ -262,9 +348,17 @@ export const invitationRouter = router({
         });
       }
 
+      const membershipId = Number(result.membershipId);
+      if (Number.isInteger(membershipId) && membershipId > 0) {
+        ctx.res.setHeader(
+          "Set-Cookie",
+          `condohub-membership=${membershipId}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=31536000`,
+        );
+      }
       return {
         success: true,
         condominiumId: Number(result.condominiumId),
+        membershipId,
       } as const;
     }),
 });
