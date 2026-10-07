@@ -17,8 +17,8 @@ const categoryAnnouncement = z.enum(["maintenance", "finance", "event", "general
 const categoryTicket = z.enum(["maintenance", "security", "cleaning", "billing", "other"]);
 const categoryDocument = z.enum(["governance", "rules", "finance", "meeting", "other"]);
 
-async function resolveScope(user: { id: number; role: string }) {
-  const scope = await getUserScope(user.id, user.role === "admin");
+async function resolveScope(user: { id: number; role: string }, activeMembershipId?: number | null) {
+  const scope = await getUserScope(user.id, user.role === "admin", activeMembershipId);
   if (!scope) {
     throw new TRPCError({
       code: "FORBIDDEN",
@@ -32,8 +32,8 @@ function isStaff(scope: { membership?: { role: string } }, platformRole: string)
   return platformRole === "admin" || ["staff", "manager", "admin"].includes(scope.membership?.role ?? "");
 }
 
-async function requireStaff(user: { id: number; role: string }) {
-  const scope = await resolveScope(user);
+async function requireStaff(user: { id: number; role: string }, activeMembershipId?: number | null) {
+  const scope = await resolveScope(user, activeMembershipId);
   if (!isStaff(scope, user.role)) {
     throw new TRPCError({ code: "FORBIDDEN", message: "Acesso reservado à equipe do condomínio." });
   }
@@ -43,7 +43,7 @@ async function requireStaff(user: { id: number; role: string }) {
 export const condoRouter = router({
   dashboard: router({
     overview: protectedProcedure.query(async ({ ctx }) => {
-      const scope = await getUserScope(ctx.user.id, ctx.user.role === "admin");
+      const scope = await getUserScope(ctx.user.id, ctx.user.role === "admin", ctx.activeMembershipId);
       if (!scope) {
         return {
           scope: null,
@@ -91,7 +91,7 @@ export const condoRouter = router({
 
   announcements: router({
     list: protectedProcedure.query(async ({ ctx }) => {
-      const scope = await resolveScope(ctx.user);
+      const scope = await resolveScope(ctx.user, ctx.activeMembershipId);
       return getAnnouncements(scope.condominium.id);
     }),
 
@@ -106,7 +106,7 @@ export const condoRouter = router({
         }),
       )
       .mutation(async ({ ctx, input }) => {
-        const scope = await requireStaff(ctx.user);
+        const scope = await requireStaff(ctx.user, ctx.activeMembershipId);
         await createAnnouncement({
           condominiumId: scope.condominium.id,
           authorId: ctx.user.id,
@@ -122,7 +122,7 @@ export const condoRouter = router({
 
   tickets: router({
     list: protectedProcedure.query(async ({ ctx }) => {
-      const scope = await resolveScope(ctx.user);
+      const scope = await resolveScope(ctx.user, ctx.activeMembershipId);
       return getTickets(
         scope.condominium.id,
         ctx.user.id,
@@ -142,7 +142,7 @@ export const condoRouter = router({
         }),
       )
       .mutation(async ({ ctx, input }) => {
-        const scope = await resolveScope(ctx.user);
+        const scope = await resolveScope(ctx.user, ctx.activeMembershipId);
         await createTicket({
           condominiumId: scope.condominium.id,
           openedById: ctx.user.id,
@@ -159,7 +159,7 @@ export const condoRouter = router({
     updateStatus: protectedProcedure
       .input(z.object({ id: z.number().int(), status: z.enum(["open", "in_progress", "resolved"]) }))
       .mutation(async ({ ctx, input }) => {
-        const scope = await requireStaff(ctx.user);
+        const scope = await requireStaff(ctx.user, ctx.activeMembershipId);
         await updateTicketStatus(input.id, scope.condominium.id, input.status);
         return { success: true } as const;
       }),
@@ -167,7 +167,7 @@ export const condoRouter = router({
 
   documents: router({
     list: protectedProcedure.query(async ({ ctx }) => {
-      const scope = await resolveScope(ctx.user);
+      const scope = await resolveScope(ctx.user, ctx.activeMembershipId);
       return getDocuments(scope.condominium.id);
     }),
 
@@ -183,7 +183,7 @@ export const condoRouter = router({
         }),
       )
       .mutation(async ({ ctx, input }) => {
-        const scope = await requireStaff(ctx.user);
+        const scope = await requireStaff(ctx.user, ctx.activeMembershipId);
         await createDocument({
           condominiumId: scope.condominium.id,
           uploadedById: ctx.user.id,
