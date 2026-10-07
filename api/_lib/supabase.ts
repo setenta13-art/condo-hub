@@ -265,6 +265,76 @@ export async function acceptInvitationForUser(
   return (payload ?? { ok: false, code: "EMPTY_RESPONSE", message: "Não foi possível ativar o convite." }) as InvitationAcceptanceResult;
 }
 
+
+export type InvitationActivationResult = InvitationAcceptanceResult & {
+  attempted: boolean;
+  source?: "token" | "email";
+};
+
+async function findSinglePendingInvitationTokenForEmail(email?: string | null) {
+  const normalizedEmail = email?.trim().toLowerCase();
+  if (!normalizedEmail) return { token: null as string | null, multiple: false };
+
+  const response = await adminFetch(
+    `invitations?status=eq.pending&email=ilike.${encodeURIComponent(normalizedEmail)}&select=token,expires_at&order=created_at.asc&limit=3`,
+  );
+  const payload = await json(response);
+  if (!response.ok || !Array.isArray(payload)) {
+    return { token: null as string | null, multiple: false };
+  }
+
+  const valid = payload.filter(row =>
+    typeof row?.token === "string" &&
+    typeof row?.expires_at === "string" &&
+    new Date(row.expires_at).getTime() > Date.now(),
+  );
+
+  if (valid.length === 1) {
+    return { token: valid[0].token as string, multiple: false };
+  }
+
+  return { token: null as string | null, multiple: valid.length > 1 };
+}
+
+export async function activateInvitationForAuthenticatedUser(
+  inviteToken: string | null | undefined,
+  appUserId: number,
+  email?: string | null,
+): Promise<InvitationActivationResult> {
+  const safeToken =
+    typeof inviteToken === "string" && /^[A-Za-z0-9_-]{20,96}$/.test(inviteToken)
+      ? inviteToken
+      : null;
+
+  let directResult: InvitationAcceptanceResult | null = null;
+  if (safeToken) {
+    directResult = await acceptInvitationForUser(safeToken, appUserId, email);
+    if (directResult.ok) return { ...directResult, attempted: true, source: "token" };
+    if (directResult.code === "EMAIL_MISMATCH") {
+      return { ...directResult, attempted: true, source: "token" };
+    }
+  }
+
+  const pending = await findSinglePendingInvitationTokenForEmail(email);
+  if (pending.token) {
+    const result = await acceptInvitationForUser(pending.token, appUserId, email);
+    return { ...result, attempted: true, source: "email" };
+  }
+
+  if (pending.multiple) {
+    return {
+      ok: false,
+      code: "MULTIPLE_PENDING_INVITES",
+      message: "Há mais de um convite pendente para este e-mail. Escolha qual acesso deseja ativar.",
+      attempted: false,
+    };
+  }
+
+  return directResult
+    ? { ...directResult, attempted: true, source: "token" }
+    : { ok: false, code: "NO_PENDING_INVITE", attempted: false };
+}
+
 export async function validateInvitationForSignup(token: string, email: string) {
   const response = await adminFetch(
     `invitations?token=eq.${encodeURIComponent(token)}&select=id,email,status,expires_at&limit=1`,
