@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { signIn, syncAppUser } from "../_lib/supabase.js";
+import { acceptInvitationForUser, signIn, syncAppUser } from "../_lib/supabase.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
@@ -7,7 +7,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const { email, password } = req.body ?? {};
+  const { email, password, inviteToken } = req.body ?? {};
   if (typeof email !== "string" || typeof password !== "string") {
     res.status(400).json({ error: "E-mail e senha são obrigatórios." });
     return;
@@ -21,14 +21,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
-    if (data.user) await syncAppUser(data.user);
+    let inviteAccepted = false;
+    let inviteActivationError: string | null = null;
+    let membershipId: number | null = null;
+
+    if (data.user) {
+      const appUser = await syncAppUser(data.user);
+      if (typeof inviteToken === "string" && /^[A-Za-z0-9_-]{20,96}$/.test(inviteToken)) {
+        const activation = await acceptInvitationForUser(inviteToken, appUser.id, data.user.email);
+        inviteAccepted = Boolean(activation.ok);
+        if (activation.ok && activation.membershipId != null) {
+          const parsedMembershipId = Number(activation.membershipId);
+          membershipId = Number.isInteger(parsedMembershipId) && parsedMembershipId > 0 ? parsedMembershipId : null;
+        } else if (!activation.ok) {
+          inviteActivationError = activation.message ?? "Não foi possível ativar o convite.";
+        }
+      }
+    }
 
     res.setHeader("Cache-Control", "private, no-store");
-    res.setHeader("Set-Cookie", [
+    const cookies = [
       `sb-access-token=${data.session.access_token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${data.session.expires_in}`,
       `sb-refresh-token=${data.session.refresh_token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000`,
-    ]);
-    res.status(200).json({ user: data.user, expiresIn: data.session.expires_in });
+    ];
+    if (membershipId) {
+      cookies.push(`condohub-membership=${membershipId}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=31536000`);
+    }
+    res.setHeader("Set-Cookie", cookies);
+    res.status(200).json({
+      user: data.user,
+      expiresIn: data.session.expires_in,
+      inviteAccepted,
+      inviteActivationError,
+      membershipId,
+    });
   } catch (error) {
     console.error("[Auth] Failed to initialize Supabase sign-in:", error);
     res.status(500).json({ error: "Falha ao inicializar autenticação." });
