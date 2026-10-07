@@ -14,6 +14,11 @@ export default function Login() {
   const [busy, setBusy] = useState(false);
   const [recovering, setRecovering] = useState(false);
 
+  const pendingInvite =
+    new URLSearchParams(window.location.search).get("invite") ??
+    localStorage.getItem("condohub-pending-invite") ??
+    sessionStorage.getItem("condohub-pending-invite");
+
   useEffect(() => {
     const inviteFromUrl = new URLSearchParams(window.location.search).get("invite");
     if (inviteFromUrl) {
@@ -27,9 +32,11 @@ export default function Login() {
     setBusy(true);
     setMessage("");
     const endpoint = mode === "login" ? "/api/auth/sign-in" : "/api/auth/sign-up";
-    const pendingInvite =
-      localStorage.getItem("condohub-pending-invite") ??
-      sessionStorage.getItem("condohub-pending-invite");
+    if (mode === "signup" && !pendingInvite) {
+      setBusy(false);
+      setMessage("Novos acessos só podem ser criados por um convite válido.");
+      return;
+    }
 
     const response = await fetch(endpoint, {
       method: "POST",
@@ -71,7 +78,7 @@ export default function Login() {
     const response = await fetch("/api/auth/recover", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: email.trim() }),
+      body: JSON.stringify({ email: email.trim(), inviteToken: pendingInvite }),
     });
     const result = await response.json().catch(() => ({}));
     setRecovering(false);
@@ -81,7 +88,7 @@ export default function Login() {
       return;
     }
 
-    setMessage("Enviamos um link para redefinir sua senha. Depois da alteração, volte e entre normalmente.");
+    setMessage("Enviamos um link para redefinir sua senha. Ao concluir, seu acesso continuará do ponto em que parou.");
   }
 
   return (
@@ -107,9 +114,15 @@ export default function Login() {
             {recovering ? "Enviando recuperação..." : "Esqueci minha senha"}
           </button>
         )}
-        <button type="button" onClick={() => { setMode(mode === "login" ? "signup" : "login"); setMessage(""); }} className="mt-5 w-full text-center text-sm font-semibold text-primary hover:underline">
-          {mode === "login" ? "Ainda não tenho acesso" : "Já tenho uma conta"}
-        </button>
+        {pendingInvite ? (
+          <button type="button" onClick={() => { setMode(mode === "login" ? "signup" : "login"); setMessage(""); }} className="mt-5 w-full text-center text-sm font-semibold text-primary hover:underline">
+            {mode === "login" ? "Criar acesso com este convite" : "Já tenho uma conta"}
+          </button>
+        ) : (
+          <p className="mt-5 text-center text-xs leading-5 text-muted-foreground">
+            Novo por aqui? O cadastro é liberado exclusivamente por convite da administração.
+          </p>
+        )}
       </section>
     </main>
   );
