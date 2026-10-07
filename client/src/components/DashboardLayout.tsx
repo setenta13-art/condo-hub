@@ -24,6 +24,7 @@ import { useIsMobile } from "@/hooks/useMobile";
 import { trpc } from "@/lib/trpc";
 import {
   Building2,
+  ChevronDown,
   ClipboardList,
   FileText,
   LayoutDashboard,
@@ -82,6 +83,10 @@ type DashboardLayoutContentProps = {
 function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutContentProps) {
   const { user, logout } = useAuth();
   const { data: overview } = trpc.condo.dashboard.overview.useQuery(undefined, { enabled: Boolean(user) });
+  const { data: contexts } = trpc.auth.contexts.useQuery(undefined, { enabled: Boolean(user) });
+  const switchContext = trpc.auth.switchContext.useMutation({
+    onSuccess: () => { window.location.href = "/"; },
+  });
   const [location, setLocation] = useLocation();
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === "collapsed";
@@ -155,6 +160,44 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
           </SidebarHeader>
 
           <SidebarContent className="gap-0 py-4">
+            {!isCollapsed && overview?.scope && (
+              <div className="mx-3 mb-4 rounded-xl border border-sidebar-border/70 bg-sidebar-accent/40 p-3">
+                <p className="truncate text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Contexto atual</p>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="mt-1 flex w-full items-center justify-between gap-2 text-left">
+                      <div className="min-w-0">
+                        <p className="truncate text-xs font-extrabold">{overview.scope.condominium.name}</p>
+                        <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                          {overview.scope.membership?.block ? `${overview.scope.membership.block} · ` : ""}
+                          {overview.scope.membership?.unit ? `Unidade ${overview.scope.membership.unit}` : overview.scope.membership?.role ?? "Administração"}
+                        </p>
+                      </div>
+                      {(contexts?.length ?? 0) > 1 && <ChevronDown className="h-3.5 w-3.5 shrink-0" />}
+                    </button>
+                  </DropdownMenuTrigger>
+                  {(contexts?.length ?? 0) > 1 && (
+                    <DropdownMenuContent align="start" className="w-72">
+                      {contexts?.map(context => (
+                        <DropdownMenuItem
+                          key={context.membership.id}
+                          onClick={() => switchContext.mutate({ membershipId: context.membership.id })}
+                          className="cursor-pointer"
+                        >
+                          <div>
+                            <p className="text-sm font-semibold">{context.condominium.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {context.membership.block ? `${context.membership.block} · ` : ""}
+                              {context.membership.unit ? `Unidade ${context.membership.unit}` : context.membership.role}
+                            </p>
+                          </div>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  )}
+                </DropdownMenu>
+              </div>
+            )}
             {!isCollapsed && (
               <p className="px-4 pb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">Menu principal</p>
             )}
