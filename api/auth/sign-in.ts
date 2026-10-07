@@ -14,16 +14,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { data, error } = await signIn(email, password);
+    const normalizedEmail = email.trim().toLowerCase();
+    const { data, error } = await signIn(normalizedEmail, password);
     if (error || !data.session) {
       res.status(401).json({ error: error?.message ?? "Não foi possível entrar." });
       return;
     }
 
-    res.setHeader(
-      "Set-Cookie",
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("Set-Cookie", [
       `sb-access-token=${data.session.access_token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${data.session.expires_in}`,
-    );
+      `sb-refresh-token=${data.session.refresh_token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000`,
+    ]);
     res.status(200).json({ user: data.user, expiresIn: data.session.expires_in });
   } catch (error) {
     console.error("[Auth] Failed to initialize Supabase sign-in:", error);
