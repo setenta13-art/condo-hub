@@ -1,8 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useMemo, useState } from "react";
-import { Link } from "wouter";
+import { useEffect, useMemo, useState } from "react";
 
 export default function ResetPassword() {
   const accessToken = useMemo(() => {
@@ -14,6 +13,30 @@ export default function ResetPassword() {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [success, setSuccess] = useState(false);
+  const invite = useMemo(
+    () =>
+      new URLSearchParams(window.location.search).get("invite") ??
+      localStorage.getItem("condohub-pending-invite") ??
+      sessionStorage.getItem("condohub-pending-invite"),
+    [],
+  );
+
+  useEffect(() => {
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const refreshToken = hash.get("refresh_token");
+    const expiresIn = Number(hash.get("expires_in") ?? 3600);
+    if (!accessToken || !refreshToken) return;
+    void fetch("/api/auth/session", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ accessToken, refreshToken, expiresIn }),
+    });
+    if (invite) {
+      localStorage.setItem("condohub-pending-invite", invite);
+      sessionStorage.setItem("condohub-pending-invite", invite);
+    }
+  }, [accessToken, invite]);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -75,9 +98,12 @@ export default function ResetPassword() {
         ) : (
           <div className="mt-7">
             <p className="rounded-xl bg-emerald-50 px-3 py-3 text-sm font-semibold text-emerald-700">{message}</p>
-            <Link href="/login">
-              <Button className="mt-4 w-full rounded-xl">Entrar com a nova senha</Button>
-            </Link>
+            <Button
+              className="mt-4 w-full rounded-xl"
+              onClick={() => { window.location.href = invite ? `/invite/${invite}` : "/"; }}
+            >
+              Continuar no CondoHub
+            </Button>
           </div>
         )}
       </section>
