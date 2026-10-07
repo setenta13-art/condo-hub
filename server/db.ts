@@ -155,6 +155,7 @@ export function mapInvitation(row: any) {
     createdById: Number(row.created_by_id),
     acceptedById: row.accepted_by_id == null ? null : Number(row.accepted_by_id),
     email: row.email ?? null,
+    phone: row.phone ?? null,
     token: row.token,
     role: row.role,
     unit: row.unit ?? null,
@@ -167,10 +168,11 @@ export function mapInvitation(row: any) {
   };
 }
 
-export async function getUserScope(userId: number, isPlatformAdmin = false) {
+export async function listUserScopes(userId: number) {
   const membershipRows = await request(
     `memberships?user_id=eq.${userId}&select=*&order=created_at.asc`,
   ) as any[];
+  const result = [];
 
   for (const membershipRow of membershipRows) {
     const membership = mapMembership(membershipRow);
@@ -185,12 +187,28 @@ export async function getUserScope(userId: number, isPlatformAdmin = false) {
     ) as any[];
     if (!organizationRows[0]) continue;
 
-    return {
+    result.push({
       membership,
       condominium,
       organization: mapOrganization(organizationRows[0]),
-    };
+    });
   }
+
+  return result;
+}
+
+export async function getUserScope(
+  userId: number,
+  isPlatformAdmin = false,
+  preferredMembershipId?: number | null,
+) {
+  const scopes = await listUserScopes(userId);
+  const preferred = preferredMembershipId
+    ? scopes.find(scope => scope.membership.id === preferredMembershipId)
+    : undefined;
+
+  if (preferred) return preferred;
+  if (scopes[0]) return scopes[0];
 
   if (!isPlatformAdmin) return undefined;
 
@@ -392,6 +410,7 @@ export async function createInvitation(input: {
   condominiumId: number;
   createdById: number;
   email: string | null;
+  phone?: string | null;
   token: string;
   role: string;
   unit: string | null;
@@ -405,6 +424,7 @@ export async function createInvitation(input: {
       condominium_id: input.condominiumId,
       created_by_id: input.createdById,
       email: input.email,
+      phone: input.phone ?? null,
       token: input.token,
       role: input.role,
       unit: input.unit,
@@ -533,7 +553,7 @@ export async function ensureMembership(
   condominiumId: number,
   role: string,
 ) {
-  await request("memberships?on_conflict=user_id,condominium_id", {
+  await request("memberships", {
     method: "POST",
     headers: { Prefer: "resolution=ignore-duplicates,return=minimal" },
     body: JSON.stringify({
