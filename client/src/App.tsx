@@ -2,6 +2,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Announcements from "@/pages/Announcements";
 import AccessPending from "@/pages/AccessPending";
+import AuthCallback from "@/pages/AuthCallback";
 import Documents from "@/pages/Documents";
 import Home from "@/pages/Home";
 import Invite from "@/pages/Invite";
@@ -43,6 +44,7 @@ function Router() {
   }, [isAuthenticated, location, navigate, overview.data?.scope, overview.isLoading, user?.role]);
 
   if (location === "/invite" || location.startsWith("/invite/")) return <Invite />;
+  if (location === "/auth/callback") return <AuthCallback />;
   if (location === "/login") return <Login />;
   if (location === "/reset-password") return <ResetPassword />;
   if (loading || (isAuthenticated && overview.isLoading)) return <DashboardLayoutSkeleton />;
