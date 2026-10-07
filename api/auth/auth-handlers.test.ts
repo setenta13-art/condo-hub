@@ -58,7 +58,7 @@ describe("serverless Supabase auth handlers", () => {
     const req = {
       method: "POST",
       body: { email: "user@example.com", password: "password123" },
-    } as VercelRequest;
+    } as unknown as VercelRequest;
     const response = createResponse();
 
     await signInHandler(req, response.res);
@@ -82,7 +82,7 @@ describe("serverless Supabase auth handlers", () => {
     const req = {
       method: "POST",
       body: { email: "user@example.com", password: "wrong-password" },
-    } as VercelRequest;
+    } as unknown as VercelRequest;
     const response = createResponse();
 
     await signInHandler(req, response.res);
@@ -105,7 +105,7 @@ describe("serverless Supabase auth handlers", () => {
       method: "POST",
       headers: { host: "example.com", "x-forwarded-proto": "https" },
       body: { email: "new@example.com", password: "password123", name: "New User", inviteToken: "abcdefghijklmnopqrstuvwxyz123456" },
-    } as VercelRequest;
+    } as unknown as VercelRequest;
     const response = createResponse();
 
     await signUpHandler(req, response.res);
@@ -119,7 +119,7 @@ describe("serverless Supabase auth handlers", () => {
     const req = {
       method: "POST",
       body: { email: "new@example.com", password: "password123", name: "New User" },
-    } as VercelRequest;
+    } as unknown as VercelRequest;
     const response = createResponse();
 
     await signUpHandler(req, response.res);
@@ -129,7 +129,7 @@ describe("serverless Supabase auth handlers", () => {
   });
 
   it("expires auth and context cookies on sign-out", () => {
-    const req = { method: "POST" } as VercelRequest;
+    const req = { method: "POST" } as unknown as VercelRequest;
     const response = createResponse();
 
     signOutHandler(req, response.res);

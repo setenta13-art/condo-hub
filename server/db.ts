@@ -109,6 +109,7 @@ export function mapAnnouncement(row: any) {
     category: row.category,
     isPinned: Boolean(row.is_pinned),
     publishedAt: new Date(row.published_at),
+    archivedAt: isoDate(row.archived_at),
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
   };
@@ -127,6 +128,9 @@ export function mapTicket(row: any) {
     priority: row.priority,
     block: row.block ?? null,
     unit: row.unit ?? null,
+    resolvedAt: isoDate(row.resolved_at),
+    closedAt: isoDate(row.closed_at),
+    reopenedAt: isoDate(row.reopened_at),
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
   };
@@ -232,9 +236,21 @@ export async function getUserScope(
 
 export async function getAnnouncements(condominiumId: number) {
   const rows = await request(
-    `announcements?condominium_id=eq.${condominiumId}&select=*&order=is_pinned.desc,published_at.desc`,
+    `announcements?condominium_id=eq.${condominiumId}&archived_at=is.null&select=*&order=is_pinned.desc,published_at.desc`,
   ) as any[];
   return rows.map(mapAnnouncement);
+}
+
+export async function closeResolvedTickets(condominiumId: number) {
+  const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  await request(
+    `tickets?condominium_id=eq.${condominiumId}&status=eq.resolved&resolved_at=lt.${encodeURIComponent(cutoff)}`,
+    {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ status: "closed", closed_at: new Date().toISOString() }),
+    },
+  );
 }
 
 export async function getTickets(
@@ -307,23 +323,27 @@ export async function createTicket(input: {
   description: string;
   category: string;
   priority: string;
+  assignedToId: number;
   block?: string | null;
   unit?: string | null;
 }) {
-  await request("tickets", {
+  const rows = await request("tickets?select=*", {
     method: "POST",
-    headers: { Prefer: "return=minimal" },
+    headers: { Prefer: "return=representation" },
     body: JSON.stringify({
       condominium_id: input.condominiumId,
       opened_by_id: input.openedById,
+      assigned_to_id: input.assignedToId,
       title: input.title,
       description: input.description,
       category: input.category,
       priority: input.priority,
+      status: "assigned",
       block: input.block ?? null,
       unit: input.unit ?? null,
     }),
-  });
+  }) as any[];
+  return mapTicket(rows[0]);
 }
 
 export async function updateTicketStatus(
@@ -336,9 +356,212 @@ export async function updateTicketStatus(
     {
       method: "PATCH",
       headers: { Prefer: "return=minimal" },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({
+        status,
+        ...(status === "resolved" ? { resolved_at: new Date().toISOString() } : {}),
+        ...(status === "closed" ? { closed_at: new Date().toISOString() } : {}),
+        ...(status === "open" ? { reopened_at: new Date().toISOString(), resolved_at: null, closed_at: null } : {}),
+      }),
     },
   );
+}
+
+
+export async function getTicketById(id: number, condominiumId: number) {
+  const rows = await request(
+    `tickets?id=eq.${id}&condominium_id=eq.${condominiumId}&select=*&limit=1`,
+  ) as any[];
+  return rows[0] ? mapTicket(rows[0]) : undefined;
+}
+
+export async function assignTicket(
+  id: number,
+  condominiumId: number,
+  assignedToId: number,
+) {
+  await request(`tickets?id=eq.${id}&condominium_id=eq.${condominiumId}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({ assigned_to_id: assignedToId, status: "assigned" }),
+  });
+}
+
+export async function createTicketEvent(input: {
+  ticketId: number;
+  actorId?: number | null;
+  eventType: string;
+  fromStatus?: string | null;
+  toStatus?: string | null;
+  assignedToId?: number | null;
+  note?: string | null;
+}) {
+  await request("ticket_events", {
+    method: "POST",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({
+      ticket_id: input.ticketId,
+      actor_id: input.actorId ?? null,
+      event_type: input.eventType,
+      from_status: input.fromStatus ?? null,
+      to_status: input.toStatus ?? null,
+      assigned_to_id: input.assignedToId ?? null,
+      note: input.note ?? null,
+    }),
+  });
+}
+
+export async function listTicketEvents(ticketId: number) {
+  const rows = await request(
+    `ticket_events?ticket_id=eq.${ticketId}&select=*&order=created_at.asc`,
+  ) as any[];
+  return rows.map(row => ({
+    id: Number(row.id),
+    ticketId: Number(row.ticket_id),
+    actorId: row.actor_id == null ? null : Number(row.actor_id),
+    eventType: row.event_type as string,
+    fromStatus: row.from_status ?? null,
+    toStatus: row.to_status ?? null,
+    assignedToId: row.assigned_to_id == null ? null : Number(row.assigned_to_id),
+    note: row.note ?? null,
+    createdAt: new Date(row.created_at),
+  }));
+}
+
+export async function addTicketMessage(ticketId: number, authorId: number, body: string) {
+  const rows = await request("ticket_messages?select=*", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({ ticket_id: ticketId, author_id: authorId, body }),
+  }) as any[];
+  const row = rows[0];
+  return {
+    id: Number(row.id),
+    ticketId: Number(row.ticket_id),
+    authorId: Number(row.author_id),
+    body: row.body as string,
+    createdAt: new Date(row.created_at),
+  };
+}
+
+export async function listTicketMessages(ticketId: number) {
+  const rows = await request(
+    `ticket_messages?ticket_id=eq.${ticketId}&select=*&order=created_at.asc`,
+  ) as any[];
+  return rows.map(row => ({
+    id: Number(row.id),
+    ticketId: Number(row.ticket_id),
+    authorId: Number(row.author_id),
+    body: row.body as string,
+    createdAt: new Date(row.created_at),
+  }));
+}
+
+export async function createNotification(input: {
+  userId: number;
+  condominiumId: number;
+  ticketId?: number | null;
+  kind: string;
+  title: string;
+  body?: string | null;
+}) {
+  await request("notifications", {
+    method: "POST",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({
+      user_id: input.userId,
+      condominium_id: input.condominiumId,
+      ticket_id: input.ticketId ?? null,
+      kind: input.kind,
+      title: input.title,
+      body: input.body ?? null,
+    }),
+  });
+}
+
+export async function listNotifications(userId: number, condominiumId: number) {
+  const rows = await request(
+    `notifications?user_id=eq.${userId}&condominium_id=eq.${condominiumId}&select=*&order=created_at.desc&limit=50`,
+  ) as any[];
+  return rows.map(row => ({
+    id: Number(row.id),
+    userId: Number(row.user_id),
+    condominiumId: Number(row.condominium_id),
+    ticketId: row.ticket_id == null ? null : Number(row.ticket_id),
+    kind: row.kind as string,
+    title: row.title as string,
+    body: row.body ?? null,
+    readAt: isoDate(row.read_at),
+    createdAt: new Date(row.created_at),
+  }));
+}
+
+export async function markNotificationRead(id: number, userId: number) {
+  await request(`notifications?id=eq.${id}&user_id=eq.${userId}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({ read_at: new Date().toISOString() }),
+  });
+}
+
+export async function markAllNotificationsRead(userId: number, condominiumId: number) {
+  await request(
+    `notifications?user_id=eq.${userId}&condominium_id=eq.${condominiumId}&read_at=is.null`,
+    {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ read_at: new Date().toISOString() }),
+    },
+  );
+}
+
+export async function updateAnnouncement(
+  id: number,
+  condominiumId: number,
+  input: { title: string; summary: string; body: string; category: string; isPinned: boolean },
+) {
+  await request(`announcements?id=eq.${id}&condominium_id=eq.${condominiumId}&archived_at=is.null`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({
+      title: input.title,
+      summary: input.summary,
+      body: input.body,
+      category: input.category,
+      is_pinned: input.isPinned,
+    }),
+  });
+}
+
+export async function archiveAnnouncement(id: number, condominiumId: number) {
+  await request(`announcements?id=eq.${id}&condominium_id=eq.${condominiumId}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({ archived_at: new Date().toISOString(), is_pinned: false }),
+  });
+}
+
+export async function markAnnouncementRead(announcementId: number, userId: number) {
+  const rows = await request(
+    `announcement_reads?announcement_id=eq.${announcementId}&user_id=eq.${userId}&select=*&limit=1`,
+  ) as any[];
+  if (!rows[0]) {
+    await request("announcement_reads", {
+      method: "POST",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ announcement_id: announcementId, user_id: userId }),
+    });
+  }
+  const updated = await request(
+    `announcement_reads?announcement_id=eq.${announcementId}&user_id=eq.${userId}&select=*&limit=1`,
+  ) as any[];
+  return updated[0] ? new Date(updated[0].read_at) : null;
+}
+
+export async function getAnnouncementRead(announcementId: number, userId: number) {
+  const rows = await request(
+    `announcement_reads?announcement_id=eq.${announcementId}&user_id=eq.${userId}&select=read_at&limit=1`,
+  ) as any[];
+  return rows[0]?.read_at ? new Date(rows[0].read_at) : null;
 }
 
 export async function createDocument(input: {
