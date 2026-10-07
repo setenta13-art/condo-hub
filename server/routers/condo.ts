@@ -243,13 +243,32 @@ export const condoRouter = router({
     list: protectedProcedure.query(async ({ ctx }) => {
       const scope = await resolveScope(ctx.user, ctx.activeMembershipId);
       await closeResolvedTickets(scope.condominium.id);
-      return getTickets(
+      const rows = await getTickets(
         scope.condominium.id,
         ctx.user.id,
         isStaff(scope, ctx.user.role),
         scope.membership?.block,
         scope.membership?.unit,
       );
+      const memberships = await listMemberships(scope.condominium.id);
+      const activeUsers = new Set(memberships.map(row => row.userId));
+      const userIds = Array.from(new Set(rows.flatMap(row => [row.openedById, row.assignedToId].filter((id): id is number => id != null))));
+      const people = new Map<number, Awaited<ReturnType<typeof getUserById>>>();
+      for (const id of userIds) people.set(id, await getUserById(id));
+      return rows.map(ticket => ({
+        ...ticket,
+        openedBy: people.get(ticket.openedById)
+          ? { id: ticket.openedById, name: people.get(ticket.openedById)!.name, email: people.get(ticket.openedById)!.email }
+          : null,
+        assignedTo: ticket.assignedToId && people.get(ticket.assignedToId)
+          ? {
+              id: ticket.assignedToId,
+              name: people.get(ticket.assignedToId)!.name,
+              email: people.get(ticket.assignedToId)!.email,
+              active: activeUsers.has(ticket.assignedToId),
+            }
+          : null,
+      }));
     }),
 
     options: protectedProcedure.query(async ({ ctx }) => {
@@ -267,12 +286,14 @@ export const condoRouter = router({
       .query(async ({ ctx, input }) => {
         const scope = await resolveScope(ctx.user, ctx.activeMembershipId);
         const ticket = await canAccessTicket(ctx.user, scope, input.id);
-        const [openedBy, assignedTo, messages, events] = await Promise.all([
+        const [openedBy, assignedTo, messages, events, memberships] = await Promise.all([
           getUserById(ticket.openedById),
           ticket.assignedToId ? getUserById(ticket.assignedToId) : Promise.resolve(undefined),
           listTicketMessages(ticket.id),
           listTicketEvents(ticket.id),
+          listMemberships(scope.condominium.id),
         ]);
+        const activeResponsibleIds = new Set(memberships.map(row => row.userId));
 
         const authorIds = new Set(messages.map(message => message.authorId));
         const authors = new Map<number, Awaited<ReturnType<typeof getUserById>>>();
@@ -285,7 +306,7 @@ export const condoRouter = router({
         return {
           ticket,
           openedBy: openedBy ? { id: openedBy.id, name: openedBy.name, email: openedBy.email } : null,
-          assignedTo: assignedTo ? { id: assignedTo.id, name: assignedTo.name, email: assignedTo.email } : null,
+          assignedTo: assignedTo ? { id: assignedTo.id, name: assignedTo.name, email: assignedTo.email, active: activeResponsibleIds.has(assignedTo.id) } : null,
           messages: messages.map(message => ({
             ...message,
             author: authors.get(message.authorId)
