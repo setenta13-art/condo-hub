@@ -18,6 +18,7 @@ export type TrpcContext = {
   req: CreateExpressContextOptions["req"];
   res: CreateExpressContextOptions["res"];
   user: AppUser | null;
+  activeMembershipId: number | null;
 };
 
 function getAccessToken(req: CreateExpressContextOptions["req"]) {
@@ -53,9 +54,12 @@ export async function createContext(
     }
   }
 
+  const cookies = parseCookieHeader(((opts.req as any).headers?.cookie ?? "") as string);
+  const membership = Number(cookies["condohub-membership"]);
   return {
     req: opts.req,
     res: opts.res,
     user,
+    activeMembershipId: Number.isInteger(membership) && membership > 0 ? membership : null,
   };
 }
