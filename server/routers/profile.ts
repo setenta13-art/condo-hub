@@ -9,7 +9,7 @@ import { z } from "zod";
 
 export const profileRouter = router({
   get: protectedProcedure.query(async ({ ctx }) => {
-    const scope = await getUserScope(ctx.user.id, false);
+    const scope = await getUserScope(ctx.user.id, false, ctx.activeMembershipId);
     if (!scope) {
       return {
         user: ctx.user,
