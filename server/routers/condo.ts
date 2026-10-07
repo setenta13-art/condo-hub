@@ -276,11 +276,11 @@ export const condoRouter = router({
 
         const authorIds = new Set(messages.map(message => message.authorId));
         const authors = new Map<number, Awaited<ReturnType<typeof getUserById>>>();
-        for (const id of authorIds) authors.set(id, await getUserById(id));
+        for (const id of Array.from(authorIds)) authors.set(id, await getUserById(id));
 
         const eventActorIds = new Set(events.flatMap(event => [event.actorId, event.assignedToId]).filter((id): id is number => id != null));
         const eventUsers = new Map<number, Awaited<ReturnType<typeof getUserById>>>();
-        for (const id of eventActorIds) eventUsers.set(id, await getUserById(id));
+        for (const id of Array.from(eventActorIds)) eventUsers.set(id, await getUserById(id));
 
         return {
           ticket,
@@ -439,7 +439,7 @@ export const condoRouter = router({
         const recipients = new Set<number>([ticket.openedById]);
         if (ticket.assignedToId) recipients.add(ticket.assignedToId);
         recipients.delete(ctx.user.id);
-        for (const userId of recipients) {
+        for (const userId of Array.from(recipients)) {
           await createNotification({
             userId,
             condominiumId: scope.condominium.id,
@@ -469,7 +469,7 @@ export const condoRouter = router({
         const recipients = new Set<number>([ticket.openedById]);
         if (ticket.assignedToId) recipients.add(ticket.assignedToId);
         recipients.delete(ctx.user.id);
-        for (const userId of recipients) {
+        for (const userId of Array.from(recipients)) {
           await createNotification({
             userId,
             condominiumId: scope.condominium.id,
