@@ -18,58 +18,68 @@ export type TrpcContext = {
   req: CreateExpressContextOptions["req"];
   res: CreateExpressContextOptions["res"];
   user: AppUser | null;
-  activeMembershipId: number | null;
 };
 
-function authFromRequest(req: CreateExpressContextOptions["req"]) {
+function tokensFromRequest(req: CreateExpressContextOptions["req"]) {
   const headers = (req as unknown as {
     headers?: { cookie?: string; authorization?: string | string[] };
   }).headers;
-  const cookies = parseCookieHeader(headers?.cookie ?? "");
-  const raw = headers?.authorization;
-  const authorization = Array.isArray(raw) ? raw[0] : raw;
-  const bearer = authorization?.startsWith("Bearer ") ? authorization.slice(7) : null;
-  const membership = Number(cookies["condohub-membership"]);
-  return {
-    accessToken: cookies["sb-access-token"] ?? bearer,
-    refreshToken: cookies["sb-refresh-token"] ?? null,
-    activeMembershipId: Number.isInteger(membership) && membership > 0 ? membership : null,
-  };
+
+  let accessToken: string | null = null;
+  let refreshToken: string | null = null;
+
+  if (headers?.cookie) {
+    const cookies = parseCookieHeader(headers.cookie);
+    accessToken = cookies["sb-access-token"] ?? null;
+    refreshToken = cookies["sb-refresh-token"] ?? null;
+  }
+
+  if (!accessToken) {
+    const raw = headers?.authorization;
+    const authorization = Array.isArray(raw) ? raw[0] : raw;
+    accessToken = authorization?.startsWith("Bearer ") ? authorization.slice(7) : null;
+  }
+
+  return { accessToken, refreshToken };
 }
 
-function sessionCookies(accessToken: string, refreshToken: string, expiresIn: number) {
-  return [
-    `sb-access-token=${accessToken}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${expiresIn}`,
-    `sb-refresh-token=${refreshToken}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000`,
+function setSessionCookies(
+  res: CreateExpressContextOptions["res"],
+  session: { access_token: string; refresh_token?: string; expires_in: number },
+) {
+  const cookies = [
+    `sb-access-token=${session.access_token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${session.expires_in}`,
   ];
+  if (session.refresh_token) {
+    cookies.push(`sb-refresh-token=${session.refresh_token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000`);
+  }
+  res.setHeader("Cache-Control", "private, no-store");
+  res.setHeader("Set-Cookie", cookies);
 }
 
 export async function createServerlessContext(
   opts: CreateExpressContextOptions,
 ): Promise<TrpcContext> {
-  const auth = authFromRequest(opts.req);
+  const { accessToken, refreshToken } = tokensFromRequest(opts.req);
   let user: AppUser | null = null;
-  let accessToken = auth.accessToken;
 
   try {
     let authUser = accessToken ? await getUser(accessToken) : null;
-    if (!authUser && auth.refreshToken) {
-      const refreshed = await refreshSession(auth.refreshToken);
-      if (refreshed.data.session) {
-        accessToken = refreshed.data.session.access_token;
-        opts.res.setHeader("Set-Cookie", sessionCookies(
-          refreshed.data.session.access_token,
-          refreshed.data.session.refresh_token,
-          refreshed.data.session.expires_in,
-        ));
-        opts.res.setHeader("Cache-Control", "private, no-store");
-        authUser = refreshed.data.user ?? await getUser(accessToken);
+
+    if (!authUser && refreshToken) {
+      const refreshed = await refreshSession(refreshToken);
+      if (refreshed.data.session && refreshed.data.user) {
+        setSessionCookies(opts.res, refreshed.data.session);
+        authUser = refreshed.data.user;
       }
     }
-    if (authUser) user = await syncAppUser(authUser);
+
+    if (authUser) {
+      user = await syncAppUser(authUser);
+    }
   } catch (error) {
     console.warn("[Auth] Supabase session validation failed:", error);
   }
 
-  return { req: opts.req, res: opts.res, user, activeMembershipId: auth.activeMembershipId };
+  return { req: opts.req, res: opts.res, user };
 }
