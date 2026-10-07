@@ -1,5 +1,15 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { signUp, syncAppUser, validateInvitationForSignup } from "../_lib/supabase.js";
+import { signUp, syncAppUser } from "../_lib/supabase.js";
+
+function sessionCookies(session: { access_token: string; refresh_token?: string; expires_in: number }) {
+  const cookies = [
+    `sb-access-token=${session.access_token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${session.expires_in}`,
+  ];
+  if (session.refresh_token) {
+    cookies.push(`sb-refresh-token=${session.refresh_token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000`);
+  }
+  return cookies;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
@@ -12,10 +22,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(400).json({ error: "E-mail e senha são obrigatórios." });
     return;
   }
-  if (typeof inviteToken !== "string" || !/^[A-Za-z0-9_-]{20,96}$/.test(inviteToken)) {
-    res.status(403).json({ error: "Novos acessos só podem ser criados por um convite válido." });
-    return;
-  }
 
   try {
     const headers = req.headers ?? {};
@@ -24,22 +30,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ? forwardedProto[0]
       : forwardedProto ?? "https";
     const host = headers.host;
-    const safeInviteToken = inviteToken;
-    const normalizedEmail = email.trim().toLowerCase();
-    const invitation = await validateInvitationForSignup(safeInviteToken, normalizedEmail);
-    if (!invitation.ok) {
-      res.status(403).json({ error: invitation.error });
-      return;
-    }
-
+    const safeInviteToken =
+      typeof inviteToken === "string" && /^[A-Za-z0-9_-]{20,96}$/.test(inviteToken)
+        ? inviteToken
+        : null;
     const redirectTo = host
-      ? `${protocol}://${host}/auth/callback?invite=${encodeURIComponent(safeInviteToken)}`
+      ? `${protocol}://${host}/login${safeInviteToken ? `?invite=${encodeURIComponent(safeInviteToken)}` : ""}`
       : undefined;
 
+    const normalizedEmail = email.trim().toLowerCase();
     const { data, error } = await signUp(
       normalizedEmail,
       password,
-      typeof name === "string" ? name : undefined,
+      typeof name === "string" ? name.trim() : undefined,
       redirectTo,
     );
 
@@ -48,15 +51,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
-    res.setHeader("Cache-Control", "private, no-store");
-    if (data.session) {
-      res.setHeader("Set-Cookie", [
-        `sb-access-token=${data.session.access_token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${data.session.expires_in}`,
-        `sb-refresh-token=${data.session.refresh_token}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000`,
-      ]);
-      if (data.user) await syncAppUser(data.user);
+    if (data.session && data.user) {
+      await syncAppUser(data.user);
+      res.setHeader("Set-Cookie", sessionCookies(data.session));
     }
 
+    res.setHeader("Cache-Control", "private, no-store");
     res.status(201).json({ user: data.user, needsEmailConfirmation: !data.session });
   } catch (error) {
     console.error("[Auth] Failed to initialize Supabase sign-up:", error);
