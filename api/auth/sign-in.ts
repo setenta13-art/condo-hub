@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { acceptInvitationForUser, signIn, syncAppUser } from "../_lib/supabase.js";
+import { activateInvitationForAuthenticatedUser, signIn, syncAppUser } from "../_lib/supabase.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
@@ -27,15 +27,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (data.user) {
       const appUser = await syncAppUser(data.user);
-      if (typeof inviteToken === "string" && /^[A-Za-z0-9_-]{20,96}$/.test(inviteToken)) {
-        const activation = await acceptInvitationForUser(inviteToken, appUser.id, data.user.email);
-        inviteAccepted = Boolean(activation.ok);
-        if (activation.ok && activation.membershipId != null) {
-          const parsedMembershipId = Number(activation.membershipId);
-          membershipId = Number.isInteger(parsedMembershipId) && parsedMembershipId > 0 ? parsedMembershipId : null;
-        } else if (!activation.ok) {
-          inviteActivationError = activation.message ?? "Não foi possível ativar o convite.";
-        }
+      const activation = await activateInvitationForAuthenticatedUser(
+        typeof inviteToken === "string" ? inviteToken : null,
+        appUser.id,
+        data.user.email,
+      );
+      inviteAccepted = Boolean(activation.ok);
+      if (activation.ok && activation.membershipId != null) {
+        const parsedMembershipId = Number(activation.membershipId);
+        membershipId = Number.isInteger(parsedMembershipId) && parsedMembershipId > 0 ? parsedMembershipId : null;
+      } else if (!activation.ok && activation.attempted) {
+        inviteActivationError = activation.message ?? "Não foi possível ativar o convite.";
       }
     }
 
