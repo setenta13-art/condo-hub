@@ -2,13 +2,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 vi.mock("../_lib/supabase.js", () => ({
+  activateInvitationForAuthenticatedUser: vi.fn(),
   signIn: vi.fn(),
   signUp: vi.fn(),
   syncAppUser: vi.fn(),
   validateInvitationForSignup: vi.fn(),
 }));
 
-import { signIn, signUp, validateInvitationForSignup } from "../_lib/supabase.js";
+import {
+  activateInvitationForAuthenticatedUser,
+  signIn,
+  signUp,
+  syncAppUser,
+  validateInvitationForSignup,
+} from "../_lib/supabase.js";
 import signInHandler from "./sign-in.js";
 import signOutHandler from "./sign-out.js";
 import signUpHandler from "./sign-up.js";
@@ -44,6 +51,22 @@ function createResponse() {
 describe("serverless Supabase auth handlers", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    vi.mocked(syncAppUser).mockResolvedValue({
+      id: 42,
+      openId: "user-1",
+      name: "User",
+      email: "user@example.com",
+      loginMethod: "supabase",
+      role: "user",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastSignedIn: new Date(),
+    });
+    vi.mocked(activateInvitationForAuthenticatedUser).mockResolvedValue({
+      ok: false,
+      code: "NO_PENDING_INVITE",
+      attempted: false,
+    });
   });
 
   it("sets a secure HttpOnly access-token cookie after sign-in", async () => {
@@ -69,6 +92,39 @@ describe("serverless Supabase auth handlers", () => {
       expect.arrayContaining([
         "sb-access-token=token-value; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=3600",
         "sb-refresh-token=refresh-value; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000",
+      ]),
+    );
+  });
+
+  it("auto-activates a unique pending invite by authenticated email even without a token", async () => {
+    vi.mocked(signIn).mockResolvedValue({
+      data: {
+        user: { id: "user-1", email: "user@example.com" },
+        session: { access_token: "token-value", refresh_token: "refresh-value", expires_in: 3600 },
+      },
+      error: null,
+    });
+    vi.mocked(activateInvitationForAuthenticatedUser).mockResolvedValue({
+      ok: true,
+      attempted: true,
+      source: "email",
+      membershipId: 77,
+      condominiumId: 1,
+    });
+
+    const req = {
+      method: "POST",
+      body: { email: "user@example.com", password: "password123" },
+    } as unknown as VercelRequest;
+    const response = createResponse();
+
+    await signInHandler(req, response.res);
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toMatchObject({ inviteAccepted: true, membershipId: 77 });
+    expect(response.headers.get("set-cookie")).toEqual(
+      expect.arrayContaining([
+        "condohub-membership=77; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=31536000",
       ]),
     );
   });
