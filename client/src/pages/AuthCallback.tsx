@@ -25,6 +25,7 @@ export default function AuthCallback() {
         return;
       }
 
+      try {
       const response = await fetch("/api/auth/session", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -44,7 +45,10 @@ export default function AuthCallback() {
         window.location.href = "/";
         return;
       }
-      window.location.href = invite ? `/invite/${invite}` : "/";
+      window.location.href = invite ? `/invite/${encodeURIComponent(invite)}` : "/";
+      } catch {
+        setMessage("Não foi possível concluir a confirmação agora. Volte ao login e tente novamente. Se o problema persistir, solicite outro convite.");
+      }
     })();
   }, []);
 
