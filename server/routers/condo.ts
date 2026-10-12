@@ -32,13 +32,44 @@ import {
 } from "../db.js";
 import { protectedProcedure, router } from "../_core/trpc.js";
 
-const categoryAnnouncement = z.enum(["maintenance", "finance", "event", "general"]);
-const categoryTicket = z.enum(["maintenance", "security", "cleaning", "billing", "other"]);
-const categoryDocument = z.enum(["governance", "rules", "finance", "meeting", "other"]);
-const ticketStatus = z.enum(["open", "assigned", "in_progress", "waiting", "resolved", "closed"]);
+const categoryAnnouncement = z.enum([
+  "maintenance",
+  "finance",
+  "event",
+  "general",
+]);
+const categoryTicket = z.enum([
+  "maintenance",
+  "security",
+  "cleaning",
+  "billing",
+  "other",
+]);
+const categoryDocument = z.enum([
+  "governance",
+  "rules",
+  "finance",
+  "meeting",
+  "other",
+]);
+const ticketStatus = z.enum([
+  "open",
+  "assigned",
+  "in_progress",
+  "waiting",
+  "resolved",
+  "closed",
+]);
 
-async function resolveScope(user: { id: number; role: string }, activeMembershipId?: number | null) {
-  const scope = await getUserScope(user.id, user.role === "admin", activeMembershipId);
+async function resolveScope(
+  user: { id: number; role: string },
+  activeMembershipId?: number | null
+) {
+  const scope = await getUserScope(
+    user.id,
+    user.role === "admin",
+    activeMembershipId
+  );
   if (!scope) {
     throw new TRPCError({
       code: "FORBIDDEN",
@@ -48,14 +79,26 @@ async function resolveScope(user: { id: number; role: string }, activeMembership
   return scope;
 }
 
-function isStaff(scope: { membership?: { role: string } }, platformRole: string) {
-  return platformRole === "admin" || ["staff", "manager", "admin"].includes(scope.membership?.role ?? "");
+function isStaff(
+  scope: { membership?: { role: string } },
+  platformRole: string
+) {
+  return (
+    platformRole === "admin" ||
+    ["staff", "manager", "admin"].includes(scope.membership?.role ?? "")
+  );
 }
 
-async function requireStaff(user: { id: number; role: string }, activeMembershipId?: number | null) {
+async function requireStaff(
+  user: { id: number; role: string },
+  activeMembershipId?: number | null
+) {
   const scope = await resolveScope(user, activeMembershipId);
   if (!isStaff(scope, user.role)) {
-    throw new TRPCError({ code: "FORBIDDEN", message: "Acesso reservado à equipe do condomínio." });
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Acesso reservado à equipe do condomínio.",
+    });
   }
   return scope;
 }
@@ -73,10 +116,14 @@ async function ensureResponsible(condominiumId: number, userId: number) {
 async function canAccessTicket(
   user: { id: number; role: string },
   scope: Awaited<ReturnType<typeof resolveScope>>,
-  ticketId: number,
+  ticketId: number
 ) {
   const ticket = await getTicketById(ticketId, scope.condominium.id);
-  if (!ticket) throw new TRPCError({ code: "NOT_FOUND", message: "Chamado não encontrado." });
+  if (!ticket)
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "Chamado não encontrado.",
+    });
   if (isStaff(scope, user.role)) return ticket;
 
   const sameUnit =
@@ -85,54 +132,93 @@ async function canAccessTicket(
     (!scope.membership?.block || ticket.block === scope.membership.block);
 
   if (ticket.openedById !== user.id && !sameUnit) {
-    throw new TRPCError({ code: "FORBIDDEN", message: "Você não pode acessar este chamado." });
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Você não pode acessar este chamado.",
+    });
   }
   return ticket;
 }
 
 async function enrichedResponsibleOptions(condominiumId: number) {
   const memberships = await listMemberships(condominiumId);
-  const byUser = new Map<number, { id: number; name: string | null; email: string | null; contexts: string[] }>();
+  const byUser = new Map<
+    number,
+    {
+      id: number;
+      name: string | null;
+      email: string | null;
+      contexts: string[];
+    }
+  >();
   for (const membership of memberships) {
     const user = await getUserById(membership.userId);
     if (!user) continue;
-    const context = [membership.block, membership.unit ? `Unidade ${membership.unit}` : null]
+    const context = [
+      membership.block,
+      membership.unit ? `Unidade ${membership.unit}` : null,
+    ]
       .filter(Boolean)
       .join(" · ");
     const current = byUser.get(user.id);
     if (current) {
-      if (context && !current.contexts.includes(context)) current.contexts.push(context);
+      if (context && !current.contexts.includes(context))
+        current.contexts.push(context);
     } else {
-      byUser.set(user.id, { id: user.id, name: user.name, email: user.email, contexts: context ? [context] : [] });
+      byUser.set(user.id, {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        contexts: context ? [context] : [],
+      });
     }
   }
-  return Array.from(byUser.values()).sort((a, b) => (a.name ?? a.email ?? "").localeCompare(b.name ?? b.email ?? ""));
+  return Array.from(byUser.values()).sort((a, b) =>
+    (a.name ?? a.email ?? "").localeCompare(b.name ?? b.email ?? "")
+  );
 }
 
 export const condoRouter = router({
   dashboard: router({
     overview: protectedProcedure.query(async ({ ctx }) => {
-      const scope = await getUserScope(ctx.user.id, ctx.user.role === "admin", ctx.activeMembershipId);
+      const scope = await getUserScope(
+        ctx.user.id,
+        ctx.user.role === "admin",
+        ctx.activeMembershipId
+      );
       if (!scope) {
         return {
           scope: null,
           announcements: [],
           tickets: [],
           documents: [],
-          counts: { announcements: 0, tickets: 0, openTickets: 0, documents: 0, units: 0, responsibles: 0 },
+          counts: {
+            announcements: 0,
+            tickets: 0,
+            openTickets: 0,
+            documents: 0,
+            units: 0,
+            responsibles: 0,
+          },
         };
       }
 
       await closeResolvedTickets(scope.condominium.id);
       const staff = isStaff(scope, ctx.user.role);
-      const [announcementRows, ticketRows, documentRows, unitCount, memberships] = await Promise.all([
+      const [
+        announcementRows,
+        ticketRows,
+        documentRows,
+        unitCount,
+        memberships,
+      ] = await Promise.all([
         getAnnouncements(scope.condominium.id),
         getTickets(
           scope.condominium.id,
           ctx.user.id,
           staff,
           scope.membership?.block,
-          scope.membership?.unit,
+          scope.membership?.unit
         ),
         getDocuments(scope.condominium.id),
         getUnitCount(scope.condominium.id),
@@ -152,7 +238,9 @@ export const condoRouter = router({
         counts: {
           announcements: announcementRows.length,
           tickets: ticketRows.length,
-          openTickets: ticketRows.filter(ticket => !["resolved", "closed"].includes(ticket.status)).length,
+          openTickets: ticketRows.filter(
+            ticket => !["resolved", "closed"].includes(ticket.status)
+          ).length,
           documents: documentRows.length,
           units: unitCount,
           responsibles: new Set(memberships.map(row => row.userId)).size,
@@ -173,7 +261,11 @@ export const condoRouter = router({
         const scope = await resolveScope(ctx.user, ctx.activeMembershipId);
         const rows = await getAnnouncements(scope.condominium.id);
         const announcement = rows.find(row => row.id === input.id);
-        if (!announcement) throw new TRPCError({ code: "NOT_FOUND", message: "Comunicado não encontrado." });
+        if (!announcement)
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Comunicado não encontrado.",
+          });
         return {
           announcement,
           readAt: await getAnnouncementRead(input.id, ctx.user.id),
@@ -188,7 +280,7 @@ export const condoRouter = router({
           body: z.string().min(3),
           category: categoryAnnouncement,
           isPinned: z.boolean().default(false),
-        }),
+        })
       )
       .mutation(async ({ ctx, input }) => {
         const scope = await requireStaff(ctx.user, ctx.activeMembershipId);
@@ -205,14 +297,16 @@ export const condoRouter = router({
       }),
 
     update: protectedProcedure
-      .input(z.object({
-        id: z.number().int().positive(),
-        title: z.string().min(3).max(200),
-        summary: z.string().min(3).max(300),
-        body: z.string().min(3),
-        category: categoryAnnouncement,
-        isPinned: z.boolean(),
-      }))
+      .input(
+        z.object({
+          id: z.number().int().positive(),
+          title: z.string().min(3).max(200),
+          summary: z.string().min(3).max(300),
+          body: z.string().min(3),
+          category: categoryAnnouncement,
+          isPinned: z.boolean(),
+        })
+      )
       .mutation(async ({ ctx, input }) => {
         const scope = await requireStaff(ctx.user, ctx.activeMembershipId);
         await updateAnnouncement(input.id, scope.condominium.id, input);
@@ -233,7 +327,10 @@ export const condoRouter = router({
         const scope = await resolveScope(ctx.user, ctx.activeMembershipId);
         const rows = await getAnnouncements(scope.condominium.id);
         if (!rows.some(row => row.id === input.id)) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "Comunicado não encontrado." });
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Comunicado não encontrado.",
+          });
         }
         return { readAt: await markAnnouncementRead(input.id, ctx.user.id) };
       }),
@@ -248,37 +345,58 @@ export const condoRouter = router({
         ctx.user.id,
         isStaff(scope, ctx.user.role),
         scope.membership?.block,
-        scope.membership?.unit,
+        scope.membership?.unit
       );
       const memberships = await listMemberships(scope.condominium.id);
       const activeUsers = new Set(memberships.map(row => row.userId));
-      const userIds = Array.from(new Set(rows.flatMap(row => [row.openedById, row.assignedToId].filter((id): id is number => id != null))));
+      const userIds = Array.from(
+        new Set(
+          rows.flatMap(row =>
+            [row.openedById, row.assignedToId].filter(
+              (id): id is number => id != null
+            )
+          )
+        )
+      );
       const people = new Map<number, Awaited<ReturnType<typeof getUserById>>>();
       for (const id of userIds) people.set(id, await getUserById(id));
       return rows.map(ticket => ({
         ...ticket,
         openedBy: people.get(ticket.openedById)
-          ? { id: ticket.openedById, name: people.get(ticket.openedById)!.name, email: people.get(ticket.openedById)!.email }
-          : null,
-        assignedTo: ticket.assignedToId && people.get(ticket.assignedToId)
           ? {
-              id: ticket.assignedToId,
-              name: people.get(ticket.assignedToId)!.name,
-              email: people.get(ticket.assignedToId)!.email,
-              active: activeUsers.has(ticket.assignedToId),
+              id: ticket.openedById,
+              name: people.get(ticket.openedById)!.name,
+              email: people.get(ticket.openedById)!.email,
             }
           : null,
+        assignedTo:
+          ticket.assignedToId && people.get(ticket.assignedToId)
+            ? {
+                id: ticket.assignedToId,
+                name: people.get(ticket.assignedToId)!.name,
+                email: people.get(ticket.assignedToId)!.email,
+                active: activeUsers.has(ticket.assignedToId),
+              }
+            : null,
       }));
     }),
 
     options: protectedProcedure.query(async ({ ctx }) => {
       const scope = await resolveScope(ctx.user, ctx.activeMembershipId);
+      const staff = isStaff(scope, ctx.user.role);
+      if (!staff)
+        return { responsibles: [], blocks: [], units: [], isStaff: false };
       const [responsibles, blocks, units] = await Promise.all([
         enrichedResponsibleOptions(scope.condominium.id),
         listBlocks(scope.condominium.id),
         listUnits(scope.condominium.id, true),
       ]);
-      return { responsibles, blocks, units, isStaff: isStaff(scope, ctx.user.role) };
+      return {
+        responsibles,
+        blocks,
+        units,
+        isStaff: isStaff(scope, ctx.user.role),
+      };
     }),
 
     detail: protectedProcedure
@@ -286,27 +404,53 @@ export const condoRouter = router({
       .query(async ({ ctx, input }) => {
         const scope = await resolveScope(ctx.user, ctx.activeMembershipId);
         const ticket = await canAccessTicket(ctx.user, scope, input.id);
-        const [openedBy, assignedTo, messages, events, memberships] = await Promise.all([
-          getUserById(ticket.openedById),
-          ticket.assignedToId ? getUserById(ticket.assignedToId) : Promise.resolve(undefined),
-          listTicketMessages(ticket.id),
-          listTicketEvents(ticket.id),
-          listMemberships(scope.condominium.id),
-        ]);
-        const activeResponsibleIds = new Set(memberships.map(row => row.userId));
+        const [openedBy, assignedTo, messages, events, memberships] =
+          await Promise.all([
+            getUserById(ticket.openedById),
+            ticket.assignedToId
+              ? getUserById(ticket.assignedToId)
+              : Promise.resolve(undefined),
+            listTicketMessages(ticket.id),
+            listTicketEvents(ticket.id),
+            listMemberships(scope.condominium.id),
+          ]);
+        const activeResponsibleIds = new Set(
+          memberships.map(row => row.userId)
+        );
 
         const authorIds = new Set(messages.map(message => message.authorId));
-        const authors = new Map<number, Awaited<ReturnType<typeof getUserById>>>();
-        for (const id of Array.from(authorIds)) authors.set(id, await getUserById(id));
+        const authors = new Map<
+          number,
+          Awaited<ReturnType<typeof getUserById>>
+        >();
+        for (const id of Array.from(authorIds))
+          authors.set(id, await getUserById(id));
 
-        const eventActorIds = new Set(events.flatMap(event => [event.actorId, event.assignedToId]).filter((id): id is number => id != null));
-        const eventUsers = new Map<number, Awaited<ReturnType<typeof getUserById>>>();
-        for (const id of Array.from(eventActorIds)) eventUsers.set(id, await getUserById(id));
+        const eventActorIds = new Set(
+          events
+            .flatMap(event => [event.actorId, event.assignedToId])
+            .filter((id): id is number => id != null)
+        );
+        const eventUsers = new Map<
+          number,
+          Awaited<ReturnType<typeof getUserById>>
+        >();
+        for (const id of Array.from(eventActorIds))
+          eventUsers.set(id, await getUserById(id));
 
         return {
           ticket,
-          openedBy: openedBy ? { id: openedBy.id, name: openedBy.name, email: openedBy.email } : null,
-          assignedTo: assignedTo ? { id: assignedTo.id, name: assignedTo.name, email: assignedTo.email, active: activeResponsibleIds.has(assignedTo.id) } : null,
+          openedBy: openedBy
+            ? { id: openedBy.id, name: openedBy.name, email: openedBy.email }
+            : null,
+          assignedTo: assignedTo
+            ? {
+                id: assignedTo.id,
+                name: assignedTo.name,
+                email: assignedTo.email,
+                active: activeResponsibleIds.has(assignedTo.id),
+              }
+            : null,
           messages: messages.map(message => ({
             ...message,
             author: authors.get(message.authorId)
@@ -319,12 +463,20 @@ export const condoRouter = router({
           })),
           events: events.map(event => ({
             ...event,
-            actor: event.actorId && eventUsers.get(event.actorId)
-              ? { id: eventUsers.get(event.actorId)!.id, name: eventUsers.get(event.actorId)!.name }
-              : null,
-            assignedTo: event.assignedToId && eventUsers.get(event.assignedToId)
-              ? { id: eventUsers.get(event.assignedToId)!.id, name: eventUsers.get(event.assignedToId)!.name }
-              : null,
+            actor:
+              event.actorId && eventUsers.get(event.actorId)
+                ? {
+                    id: eventUsers.get(event.actorId)!.id,
+                    name: eventUsers.get(event.actorId)!.name,
+                  }
+                : null,
+            assignedTo:
+              event.assignedToId && eventUsers.get(event.assignedToId)
+                ? {
+                    id: eventUsers.get(event.assignedToId)!.id,
+                    name: eventUsers.get(event.assignedToId)!.name,
+                  }
+                : null,
           })),
           isStaff: isStaff(scope, ctx.user.role),
         };
@@ -341,7 +493,7 @@ export const condoRouter = router({
           block: z.string().max(40).optional(),
           unit: z.string().max(40).optional(),
           general: z.boolean().optional(),
-        }),
+        })
       )
       .mutation(async ({ ctx, input }) => {
         const scope = await resolveScope(ctx.user, ctx.activeMembershipId);
@@ -391,11 +543,20 @@ export const condoRouter = router({
       }),
 
     assign: protectedProcedure
-      .input(z.object({ id: z.number().int().positive(), assignedToId: z.number().int().positive() }))
+      .input(
+        z.object({
+          id: z.number().int().positive(),
+          assignedToId: z.number().int().positive(),
+        })
+      )
       .mutation(async ({ ctx, input }) => {
         const scope = await requireStaff(ctx.user, ctx.activeMembershipId);
         const ticket = await getTicketById(input.id, scope.condominium.id);
-        if (!ticket) throw new TRPCError({ code: "NOT_FOUND", message: "Chamado não encontrado." });
+        if (!ticket)
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Chamado não encontrado.",
+          });
         await ensureResponsible(scope.condominium.id, input.assignedToId);
         await assignTicket(ticket.id, scope.condominium.id, input.assignedToId);
         await createTicketEvent({
@@ -417,7 +578,10 @@ export const condoRouter = router({
             body: ticket.title,
           });
         }
-        if (ticket.openedById !== ctx.user.id && ticket.openedById !== input.assignedToId) {
+        if (
+          ticket.openedById !== ctx.user.id &&
+          ticket.openedById !== input.assignedToId
+        ) {
           await createNotification({
             userId: ticket.openedById,
             condominiumId: scope.condominium.id,
@@ -431,20 +595,32 @@ export const condoRouter = router({
       }),
 
     updateStatus: protectedProcedure
-      .input(z.object({ id: z.number().int().positive(), status: ticketStatus }))
+      .input(
+        z.object({ id: z.number().int().positive(), status: ticketStatus })
+      )
       .mutation(async ({ ctx, input }) => {
         const scope = await resolveScope(ctx.user, ctx.activeMembershipId);
         const ticket = await canAccessTicket(ctx.user, scope, input.id);
         const staff = isStaff(scope, ctx.user.role);
 
         if (!staff && input.status !== "open") {
-          throw new TRPCError({ code: "FORBIDDEN", message: "Moradores só podem reabrir chamados concluídos ou encerrados." });
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message:
+              "Moradores só podem reabrir chamados concluídos ou encerrados.",
+          });
         }
         if (!staff && !["resolved", "closed"].includes(ticket.status)) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "Este chamado ainda está em atendimento." });
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Este chamado ainda está em atendimento.",
+          });
         }
         if (staff && input.status === "open") {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "Use uma etapa de atendimento para atualizar o chamado." });
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Use uma etapa de atendimento para atualizar o chamado.",
+          });
         }
 
         await updateTicketStatus(ticket.id, scope.condominium.id, input.status);
@@ -466,7 +642,10 @@ export const condoRouter = router({
             condominiumId: scope.condominium.id,
             ticketId: ticket.id,
             kind: input.status === "open" ? "ticket_reopened" : "ticket_status",
-            title: input.status === "open" ? "Chamado reaberto" : "Chamado atualizado",
+            title:
+              input.status === "open"
+                ? "Chamado reaberto"
+                : "Chamado atualizado",
             body: ticket.title,
           });
         }
@@ -474,7 +653,12 @@ export const condoRouter = router({
       }),
 
     addMessage: protectedProcedure
-      .input(z.object({ id: z.number().int().positive(), body: z.string().trim().min(1).max(3000) }))
+      .input(
+        z.object({
+          id: z.number().int().positive(),
+          body: z.string().trim().min(1).max(3000),
+        })
+      )
       .mutation(async ({ ctx, input }) => {
         const scope = await resolveScope(ctx.user, ctx.activeMembershipId);
         const ticket = await canAccessTicket(ctx.user, scope, input.id);
@@ -542,7 +726,7 @@ export const condoRouter = router({
           fileUrl: z.string().url(),
           fileKey: z.string().min(1).max(255),
           mimeType: z.string().max(120).optional(),
-        }),
+        })
       )
       .mutation(async ({ ctx, input }) => {
         const scope = await requireStaff(ctx.user, ctx.activeMembershipId);

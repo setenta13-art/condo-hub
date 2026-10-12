@@ -52,3 +52,6 @@
 `ID | versão/commit | ambiente | data/hora | executor | pré-condições | passos | esperado | observado | PASS/FAIL/BLOCKED | evidência sanitizada | issue`.
 
 **Não publicar nem marcar concluído enquanto os Gates não forem atendidos.**
+
+## Execução técnica desta continuidade
+Consultar `RELATORIO_ONBOARDING_2026-10-12.md`: 42 testes determinísticos e SQL transacional passaram; smoke Auth separado executado. Aceite humano/e2e não concluído. P0 de redirects confirmado em Supabase; e-mail de convites não configurado. Preview técnico autorizado pelo usuário, sem promoção a produção. Gates de liberação permanecem abertos.

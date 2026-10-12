@@ -1,44 +1,74 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { activateInvitationForAuthenticatedUser, getUser, syncAppUser } from "../_lib/supabase.js";
+import {
+  activateInvitationForAuthenticatedUser,
+  getUser,
+  syncAppUser,
+} from "../_lib/supabase.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Método não permitido." });
+  if (req.method !== "POST")
+    return res.status(405).json({ error: "Método não permitido." });
 
   const { accessToken, refreshToken, expiresIn, inviteToken } = req.body ?? {};
   if (typeof accessToken !== "string" || typeof refreshToken !== "string") {
     return res.status(400).json({ error: "Sessão inválida." });
   }
 
-  const authUser = await getUser(accessToken);
-  if (!authUser) return res.status(401).json({ error: "Sessão inválida ou expirada." });
+  try {
+    const authUser = await getUser(accessToken);
+    if (!authUser)
+      return res.status(401).json({ error: "Sessão inválida ou expirada." });
 
-  const appUser = await syncAppUser(authUser);
-  let inviteAccepted = false;
-  let inviteActivationError: string | null = null;
-  let membershipId: number | null = null;
+    const appUser = await syncAppUser(authUser);
+    let inviteAccepted = false;
+    let inviteActivationError: string | null = null;
+    let membershipId: number | null = null;
 
-  const activation = await activateInvitationForAuthenticatedUser(
-    typeof inviteToken === "string" ? inviteToken : null,
-    appUser.id,
-    authUser.email,
-  );
-  inviteAccepted = Boolean(activation.ok);
-  if (activation.ok && activation.membershipId != null) {
-    const parsedMembershipId = Number(activation.membershipId);
-    membershipId = Number.isInteger(parsedMembershipId) && parsedMembershipId > 0 ? parsedMembershipId : null;
-  } else if (!activation.ok && activation.attempted) {
-    inviteActivationError = activation.message ?? "Não foi possível ativar o convite.";
+    const activation = await activateInvitationForAuthenticatedUser(
+      typeof inviteToken === "string" ? inviteToken : null,
+      appUser.id,
+      authUser.email
+    );
+    inviteAccepted = Boolean(activation.ok);
+    if (activation.ok && activation.membershipId != null) {
+      const parsedMembershipId = Number(activation.membershipId);
+      membershipId =
+        Number.isInteger(parsedMembershipId) && parsedMembershipId > 0
+          ? parsedMembershipId
+          : null;
+    } else if (!activation.ok && activation.attempted) {
+      inviteActivationError =
+        activation.message ?? "Não foi possível ativar o convite.";
+    }
+
+    const maxAge = Number.isFinite(Number(expiresIn))
+      ? Math.min(3600, Math.max(60, Math.floor(Number(expiresIn))))
+      : 3600;
+    res.setHeader("Cache-Control", "private, no-store");
+    const cookies = [
+      `sb-access-token=${accessToken}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${maxAge}`,
+      `sb-refresh-token=${refreshToken}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000`,
+    ];
+    cookies.push(
+      "condohub-membership=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0"
+    );
+    if (membershipId) {
+      cookies.push(
+        `condohub-membership=${membershipId}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=31536000`
+      );
+    }
+    res.setHeader("Set-Cookie", cookies);
+    return res.json({
+      success: true,
+      inviteAccepted,
+      inviteActivationError,
+      membershipId,
+    });
+  } catch {
+    return res
+      .status(503)
+      .json({
+        error: "Não foi possível concluir a sessão agora. Tente novamente.",
+      });
   }
-
-  const maxAge = Number.isFinite(Number(expiresIn)) ? Math.max(60, Number(expiresIn)) : 3600;
-  res.setHeader("Cache-Control", "private, no-store");
-  const cookies = [
-    `sb-access-token=${accessToken}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${maxAge}`,
-    `sb-refresh-token=${refreshToken}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000`,
-  ];
-  if (membershipId) {
-    cookies.push(`condohub-membership=${membershipId}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=31536000`);
-  }
-  res.setHeader("Set-Cookie", cookies);
-  return res.json({ success: true, inviteAccepted, inviteActivationError, membershipId });
 }

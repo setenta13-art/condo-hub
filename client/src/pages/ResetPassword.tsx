@@ -19,7 +19,7 @@ export default function ResetPassword() {
       new URLSearchParams(window.location.search).get("invite") ??
       localStorage.getItem("condohub-pending-invite") ??
       sessionStorage.getItem("condohub-pending-invite"),
-    [],
+    []
   );
 
   useEffect(() => {
@@ -32,7 +32,11 @@ export default function ResetPassword() {
       headers: { "content-type": "application/json" },
       credentials: "include",
       body: JSON.stringify({ accessToken, refreshToken, expiresIn }),
-    });
+    }).catch(() =>
+      setMessage(
+        "Não foi possível inicializar a sessão. Entre novamente após atualizar a senha."
+      )
+    );
     if (invite) {
       localStorage.setItem("condohub-pending-invite", invite);
       sessionStorage.setItem("condohub-pending-invite", invite);
@@ -56,52 +60,91 @@ export default function ResetPassword() {
 
     setBusy(true);
     setMessage("");
-    const response = await fetch("/api/auth/update-password", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ accessToken, password }),
-    });
-    const result = await response.json().catch(() => ({}));
-    setBusy(false);
+    try {
+      const response = await fetch("/api/auth/update-password", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ accessToken, password }),
+        signal: AbortSignal.timeout(20000),
+      });
+      const result = await response.json().catch(() => ({}));
+      setBusy(false);
 
-    if (!response.ok) {
-      setMessage(result.error ?? "Não foi possível atualizar a senha.");
-      return;
+      if (!response.ok) {
+        setMessage(result.error ?? "Não foi possível atualizar a senha.");
+        return;
+      }
+
+      setSuccess(true);
+      setMessage("Senha atualizada com sucesso.");
+      history.replaceState(null, "", "/reset-password");
+    } catch {
+      setMessage("Falha de conexão. Tente atualizar a senha novamente.");
+    } finally {
+      setBusy(false);
     }
-
-    setSuccess(true);
-    setMessage("Senha atualizada com sucesso.");
-    history.replaceState(null, "", "/reset-password");
   }
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#f7f8fc] px-5 py-10">
       <section className="w-full max-w-md rounded-3xl border border-border bg-card p-7 shadow-xl sm:p-9">
-        <Link href="/login" className="text-sm font-semibold text-primary">← Voltar para o login</Link>
-        <h1 className="mt-8 text-3xl font-extrabold tracking-tight">Redefinir senha</h1>
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">Crie uma nova senha para sua conta do CondoHub.</p>
+        <Link href="/login" className="text-sm font-semibold text-primary">
+          ← Voltar para o login
+        </Link>
+        <h1 className="mt-8 text-3xl font-extrabold tracking-tight">
+          Redefinir senha
+        </h1>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          Crie uma nova senha para sua conta do CondoHub.
+        </p>
 
         {!success ? (
           <form onSubmit={submit} className="mt-7 space-y-4">
             <div className="space-y-2">
               <Label htmlFor="password">Nova senha</Label>
-              <Input id="password" type="password" minLength={6} value={password} onChange={event => setPassword(event.target.value)} required />
+              <Input
+                id="password"
+                type="password"
+                minLength={6}
+                value={password}
+                onChange={event => setPassword(event.target.value)}
+                required
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirmation">Confirmar nova senha</Label>
-              <Input id="confirmation" type="password" minLength={6} value={confirmation} onChange={event => setConfirmation(event.target.value)} required />
+              <Input
+                id="confirmation"
+                type="password"
+                minLength={6}
+                value={confirmation}
+                onChange={event => setConfirmation(event.target.value)}
+                required
+              />
             </div>
-            {message && <p className="rounded-xl bg-muted px-3 py-2 text-sm text-muted-foreground">{message}</p>}
-            <Button type="submit" disabled={busy || !accessToken} className="w-full rounded-xl">
+            {message && (
+              <p className="rounded-xl bg-muted px-3 py-2 text-sm text-muted-foreground">
+                {message}
+              </p>
+            )}
+            <Button
+              type="submit"
+              disabled={busy || !accessToken}
+              className="w-full rounded-xl"
+            >
               {busy ? "Atualizando..." : "Atualizar senha"}
             </Button>
           </form>
         ) : (
           <div className="mt-7">
-            <p className="rounded-xl bg-emerald-50 px-3 py-3 text-sm font-semibold text-emerald-700">{message}</p>
+            <p className="rounded-xl bg-emerald-50 px-3 py-3 text-sm font-semibold text-emerald-700">
+              {message}
+            </p>
             <Button
               className="mt-4 w-full rounded-xl"
-              onClick={() => { window.location.href = invite ? `/invite/${invite}` : "/"; }}
+              onClick={() => {
+                window.location.href = invite ? `/invite/${invite}` : "/";
+              }}
             >
               Continuar no CondoHub
             </Button>

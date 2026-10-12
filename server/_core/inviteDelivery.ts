@@ -10,28 +10,33 @@ export async function sendInviteEmail(input: InviteEmailInput) {
   const from = process.env.INVITE_FROM_EMAIL;
   if (!apiKey || !from) return { status: "not_configured" as const };
 
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from,
-      to: [input.to],
-      subject: `Convite para acessar o ${input.condominiumName}`,
-      text:
-        `Olá!\n\nVocê foi convidado para acessar o ${input.condominiumName} no CondoHub.\n\n` +
-        `Acesse seu convite: ${input.inviteUrl}\n\n` +
-        `O link é válido até ${new Intl.DateTimeFormat("pt-BR").format(input.expiresAt)}.`,
-    }),
-  });
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      signal: AbortSignal.timeout(15000),
+      body: JSON.stringify({
+        from,
+        to: [input.to],
+        subject: `Convite para acessar o ${input.condominiumName}`,
+        text:
+          `Olá!\n\nVocê foi convidado para acessar o ${input.condominiumName} no CondoHub.\n\n` +
+          `Acesse seu convite: ${input.inviteUrl}\n\n` +
+          `O link é válido até ${new Intl.DateTimeFormat("pt-BR").format(input.expiresAt)}.`,
+      }),
+    });
 
-  if (!response.ok) {
-    console.error("[Invites] Resend delivery failed:", response.status, await response.text());
+    if (!response.ok) {
+      console.error("[Invites] Resend delivery failed:", response.status);
+      return { status: "failed" as const };
+    }
+    return { status: "sent" as const };
+  } catch {
     return { status: "failed" as const };
   }
-  return { status: "sent" as const };
 }
 
 export function normalizePhone(value?: string | null) {

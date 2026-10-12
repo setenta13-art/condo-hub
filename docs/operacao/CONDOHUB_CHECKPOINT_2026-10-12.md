@@ -35,3 +35,12 @@
 - Repositório guarda documentação e código, nunca senhas/tokens nem dump com dados pessoais.
 - Drive fornece cópia externa do checkpoint; exportação oficial ChatGPT necessária para o histórico integral.
 - Backup do banco deve ser separado, com criptografia, retenção e teste de restauração.
+
+## Continuidade — rodada de correções de onboarding
+- Branch atual: `fix/invitation-onboarding-20261012`, base `2a1a84085530cba57553098e0d53bb93390856a1`, base Vercel READY confirmada diretamente.
+- Supabase ACTIVE_HEALTHY. Migração `invitation_roles_idempotent` aplicada e testada com fixtures transacionais revertidas. Mantidos 6 usuários Auth, 6 app_users, 9 convites, 6 vínculos, 1 administrador global; digests antes/depois iguais.
+- Correções: aceite idempotente, papéis separados sem sobrescrita, identidade confirmada, isolamento de contextos, restrição de staff e proteção admin, remoção de diretório pessoal das opções de chamados, callback recuperável, limpeza de contexto na troca de conta.
+- Evidências detalhadas: `docs/qualidade/RELATORIO_ONBOARDING_2026-10-12.md` e `docs/qualidade/TESTE_RPC_ONBOARDING_TRANSACIONAL.sql`.
+- Bloqueio P0: Supabase redirect allowlist descarta hostname atual e retorna para `condo-72tkvfc76-condo-hub.vercel.app`; painel URL Configuration exige login e o conector não oferece essa operação. Não considerar confirmação de e-mail homologada.
+- Convites automáticos por e-mail: Resend não configurado; fluxo de link manual disponível. Validação SMTP/caixa real, usuário novo/existente, concorrência real e CRUD e2e pendentes.
+- Endereço de reteste técnico: `https://condo-hub-git-fix-invitation-onboarding-20261012-condo-hub.vercel.app/login`; só declarar preview novo pronto após verificar SHA/READY.

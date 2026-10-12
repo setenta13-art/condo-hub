@@ -13,11 +13,18 @@ import { z } from "zod";
 
 const membershipRole = z.enum(["resident", "staff", "manager", "admin"]);
 
-async function getManagementScope(user: { id: number; role: string }, activeMembershipId?: number | null) {
-  const scope = await getUserScope(user.id, user.role === "admin", activeMembershipId);
+async function getManagementScope(
+  user: { id: number; role: string },
+  activeMembershipId?: number | null
+) {
+  const scope = await getUserScope(
+    user.id,
+    user.role === "admin",
+    activeMembershipId
+  );
   const allowed =
     user.role === "admin" ||
-    ["staff", "manager", "admin"].includes(scope?.membership?.role ?? "");
+    ["manager", "admin"].includes(scope?.membership?.role ?? "");
   if (!allowed) {
     throw new TRPCError({
       code: "FORBIDDEN",
@@ -39,10 +46,11 @@ export const responsiblesRouter = router({
       if (user) rows.push({ ...membership, user });
     }
 
-    rows.sort((a, b) =>
-      (a.block ?? "").localeCompare(b.block ?? "") ||
-      (a.unit ?? "").localeCompare(b.unit ?? "") ||
-      (a.user.name ?? "").localeCompare(b.user.name ?? "")
+    rows.sort(
+      (a, b) =>
+        (a.block ?? "").localeCompare(b.block ?? "") ||
+        (a.unit ?? "").localeCompare(b.unit ?? "") ||
+        (a.user.name ?? "").localeCompare(b.user.name ?? "")
     );
     return rows;
   }),
@@ -54,7 +62,7 @@ export const responsiblesRouter = router({
         role: membershipRole,
         unit: z.string().trim().max(40).optional(),
         block: z.string().trim().max(40).optional(),
-      }),
+      })
     )
     .mutation(async ({ ctx, input }) => {
       const scope = await getManagementScope(ctx.user, ctx.activeMembershipId);
@@ -67,7 +75,27 @@ export const responsiblesRouter = router({
       if (input.role === "admin" && ctx.user.role !== "admin") {
         throw new TRPCError({
           code: "FORBIDDEN",
-          message: "Apenas um administrador da plataforma pode promover este vínculo.",
+          message:
+            "Apenas um administrador da plataforma pode promover este vínculo.",
+        });
+      }
+
+      const target = (await listMemberships(scope.condominium.id)).find(
+        row => row.id === input.id
+      );
+      if (!target)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Vínculo não encontrado neste condomínio.",
+        });
+      const targetUser = await getUserById(target.userId);
+      if (
+        ctx.user.role !== "admin" &&
+        (target.role === "admin" || targetUser?.role === "admin")
+      ) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "O acesso do administrador está protegido.",
         });
       }
 
@@ -77,7 +105,8 @@ export const responsiblesRouter = router({
       if (input.role === "resident" && !requestedUnit) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Responsáveis moradores precisam estar vinculados a uma unidade.",
+          message:
+            "Responsáveis moradores precisam estar vinculados a uma unidade.",
         });
       }
 
@@ -98,7 +127,9 @@ export const responsiblesRouter = router({
         }
 
         if (requestedUnit) {
-          const matchingUnits = units.filter(row => row.identifier === requestedUnit);
+          const matchingUnits = units.filter(
+            row => row.identifier === requestedUnit
+          );
           if (!matchingUnits.length) {
             throw new TRPCError({
               code: "BAD_REQUEST",
@@ -141,7 +172,22 @@ export const responsiblesRouter = router({
 
       const memberships = await listMemberships(scope.condominium.id);
       const membership = memberships.find(row => row.id === input.id);
-      if (membership?.userId === ctx.user.id) {
+      if (!membership)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Vínculo não encontrado neste condomínio.",
+        });
+      const targetUser = await getUserById(membership.userId);
+      if (
+        targetUser?.role === "admin" ||
+        (membership.role === "admin" && ctx.user.role !== "admin")
+      ) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "O acesso do administrador está protegido.",
+        });
+      }
+      if (membership.userId === ctx.user.id) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "Você não pode remover o próprio acesso.",

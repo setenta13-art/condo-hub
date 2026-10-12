@@ -21,8 +21,9 @@ export function useAuth(options?: UseAuthOptions) {
       throw new Error("Não foi possível encerrar a sessão.");
     }
 
-    utils.auth.me.setData(undefined, null);
-    await utils.auth.me.invalidate();
+    sessionStorage.removeItem("condohub-pending-invite");
+    localStorage.removeItem("condohub-pending-invite");
+    window.location.href = "/login";
   }, [utils]);
 
   const state = useMemo(() => {
@@ -32,11 +33,7 @@ export function useAuth(options?: UseAuthOptions) {
       error: meQuery.error ?? null,
       isAuthenticated: Boolean(meQuery.data),
     };
-  }, [
-    meQuery.data,
-    meQuery.error,
-    meQuery.isLoading,
-  ]);
+  }, [meQuery.data, meQuery.error, meQuery.isLoading]);
 
   useEffect(() => {
     if (!redirectOnUnauthenticated) return;
@@ -46,12 +43,7 @@ export function useAuth(options?: UseAuthOptions) {
     if (redirectPath && window.location.pathname === redirectPath) return;
 
     window.location.href = redirectPath ?? "/login";
-  }, [
-    redirectOnUnauthenticated,
-    redirectPath,
-    meQuery.isLoading,
-    state.user,
-  ]);
+  }, [redirectOnUnauthenticated, redirectPath, meQuery.isLoading, state.user]);
 
   return {
     ...state,

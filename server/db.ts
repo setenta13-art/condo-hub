@@ -211,6 +211,7 @@ export async function getUserScope(
     ? scopes.find(scope => scope.membership.id === preferredMembershipId)
     : undefined;
 
+  if (preferredMembershipId && !preferred) return undefined;
   if (preferred) return preferred;
   if (scopes[0]) return scopes[0];
 

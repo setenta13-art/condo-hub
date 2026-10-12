@@ -27,7 +27,10 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 function Router() {
   const [location, navigate] = useLocation();
   const { isAuthenticated, loading, user } = useAuth();
-  const overview = trpc.condo.dashboard.overview.useQuery(undefined, { enabled: isAuthenticated, retry: false });
+  const overview = trpc.condo.dashboard.overview.useQuery(undefined, {
+    enabled: isAuthenticated,
+    retry: false,
+  });
 
   useEffect(() => {
     if (!isAuthenticated || location !== "/") return;
@@ -36,20 +39,37 @@ function Router() {
   }, [isAuthenticated, location, navigate]);
 
   useEffect(() => {
-    if (!isAuthenticated || overview.isLoading || user?.role !== "admin") return;
+    if (!isAuthenticated || overview.isLoading || user?.role !== "admin")
+      return;
     if (overview.data?.scope) return;
 
     const allowedWithoutScope = new Set(["/", "/setup", "/profile"]);
     if (!allowedWithoutScope.has(location)) navigate("/setup");
-  }, [isAuthenticated, location, navigate, overview.data?.scope, overview.isLoading, user?.role]);
+  }, [
+    isAuthenticated,
+    location,
+    navigate,
+    overview.data?.scope,
+    overview.isLoading,
+    user?.role,
+  ]);
 
-  if (location === "/invite" || location.startsWith("/invite/")) return <Invite />;
+  // A provider fallback to the site root must still process the returned session.
+  const authHash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  if (authHash.get("type") === "recovery" && authHash.has("access_token"))
+    return <ResetPassword />;
+  if (authHash.has("access_token") || authHash.has("error"))
+    return <AuthCallback />;
+  if (location === "/invite" || location.startsWith("/invite/"))
+    return <Invite />;
   if (location === "/auth/callback") return <AuthCallback />;
   if (location === "/login") return <Login />;
   if (location === "/reset-password") return <ResetPassword />;
-  if (loading || (isAuthenticated && overview.isLoading)) return <DashboardLayoutSkeleton />;
+  if (loading || (isAuthenticated && overview.isLoading))
+    return <DashboardLayoutSkeleton />;
   if (!isAuthenticated) return <PublicHome />;
-  if (user?.role !== "admin" && overview.data && !overview.data.scope) return <AccessPending />;
+  if (user?.role !== "admin" && overview.data && !overview.data.scope)
+    return <AccessPending />;
 
   return (
     <DashboardLayout>

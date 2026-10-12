@@ -3,6 +3,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 vi.mock("../_lib/supabase.js", () => ({
   activateInvitationForAuthenticatedUser: vi.fn(),
+  getUser: vi.fn(),
   signIn: vi.fn(),
   signUp: vi.fn(),
   syncAppUser: vi.fn(),
@@ -10,6 +11,7 @@ vi.mock("../_lib/supabase.js", () => ({
 }));
 
 import {
+  getUser,
   activateInvitationForAuthenticatedUser,
   signIn,
   signUp,
@@ -19,6 +21,7 @@ import {
 import signInHandler from "./sign-in.js";
 import signOutHandler from "./sign-out.js";
 import signUpHandler from "./sign-up.js";
+import sessionHandler from "./session.js";
 
 function createResponse() {
   const headers = new Map<string, string | string[]>();
@@ -43,8 +46,12 @@ function createResponse() {
   return {
     res,
     headers,
-    get statusCode() { return statusCode; },
-    get body() { return body; },
+    get statusCode() {
+      return statusCode;
+    },
+    get body() {
+      return body;
+    },
   };
 }
 
@@ -73,7 +80,11 @@ describe("serverless Supabase auth handlers", () => {
     vi.mocked(signIn).mockResolvedValue({
       data: {
         user: { id: "user-1", email: "user@example.com" },
-        session: { access_token: "token-value", refresh_token: "refresh-value", expires_in: 3600 },
+        session: {
+          access_token: "token-value",
+          refresh_token: "refresh-value",
+          expires_in: 3600,
+        },
       },
       error: null,
     });
@@ -92,7 +103,7 @@ describe("serverless Supabase auth handlers", () => {
       expect.arrayContaining([
         "sb-access-token=token-value; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=3600",
         "sb-refresh-token=refresh-value; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000",
-      ]),
+      ])
     );
   });
 
@@ -100,7 +111,11 @@ describe("serverless Supabase auth handlers", () => {
     vi.mocked(signIn).mockResolvedValue({
       data: {
         user: { id: "user-1", email: "user@example.com" },
-        session: { access_token: "token-value", refresh_token: "refresh-value", expires_in: 3600 },
+        session: {
+          access_token: "token-value",
+          refresh_token: "refresh-value",
+          expires_in: 3600,
+        },
       },
       error: null,
     });
@@ -121,11 +136,14 @@ describe("serverless Supabase auth handlers", () => {
     await signInHandler(req, response.res);
 
     expect(response.statusCode).toBe(200);
-    expect(response.body).toMatchObject({ inviteAccepted: true, membershipId: 77 });
+    expect(response.body).toMatchObject({
+      inviteAccepted: true,
+      membershipId: 77,
+    });
     expect(response.headers.get("set-cookie")).toEqual(
       expect.arrayContaining([
         "condohub-membership=77; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=31536000",
-      ]),
+      ])
     );
   });
 
@@ -148,7 +166,9 @@ describe("serverless Supabase auth handlers", () => {
   });
 
   it("reports email confirmation when invited sign-up returns no session", async () => {
-    vi.mocked(validateInvitationForSignup).mockResolvedValue({ ok: true } as const);
+    vi.mocked(validateInvitationForSignup).mockResolvedValue({
+      ok: true,
+    } as const);
     vi.mocked(signUp).mockResolvedValue({
       data: {
         user: { id: "user-2", email: "new@example.com" },
@@ -160,7 +180,12 @@ describe("serverless Supabase auth handlers", () => {
     const req = {
       method: "POST",
       headers: { host: "example.com", "x-forwarded-proto": "https" },
-      body: { email: "new@example.com", password: "password123", name: "New User", inviteToken: "abcdefghijklmnopqrstuvwxyz123456" },
+      body: {
+        email: "new@example.com",
+        password: "password123",
+        name: "New User",
+        inviteToken: "abcdefghijklmnopqrstuvwxyz123456",
+      },
     } as unknown as VercelRequest;
     const response = createResponse();
 
@@ -171,10 +196,46 @@ describe("serverless Supabase auth handlers", () => {
     expect(response.headers.has("set-cookie")).toBe(false);
   });
 
+  it("keeps the canonical callback and invitation token even from an immutable preview URL", async () => {
+    vi.stubEnv("APP_BASE_URL", "https://canonical.example.com/");
+    vi.mocked(validateInvitationForSignup).mockResolvedValue({ ok: true });
+    vi.mocked(signUp).mockResolvedValue({
+      data: { user: { id: "user-2" }, session: null },
+      error: null,
+    });
+    const response = createResponse();
+    try {
+      await signUpHandler(
+        {
+          method: "POST",
+          headers: { host: "immutable.example.com" },
+          body: {
+            email: "NEW@example.com",
+            password: "password123",
+            inviteToken: "a".repeat(32),
+          },
+        } as unknown as VercelRequest,
+        response.res
+      );
+      expect(signUp).toHaveBeenCalledWith(
+        "new@example.com",
+        "password123",
+        undefined,
+        "https://canonical.example.com/auth/callback?invite=" + "a".repeat(32)
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("rejects sign-up when no invitation is supplied", async () => {
     const req = {
       method: "POST",
-      body: { email: "new@example.com", password: "password123", name: "New User" },
+      body: {
+        email: "new@example.com",
+        password: "password123",
+        name: "New User",
+      },
     } as unknown as VercelRequest;
     const response = createResponse();
 
@@ -182,6 +243,98 @@ describe("serverless Supabase auth handlers", () => {
 
     expect(response.statusCode).toBe(403);
     expect(signUp).not.toHaveBeenCalled();
+  });
+
+  it("does not carry the prior user's membership into a fresh login", async () => {
+    vi.mocked(signIn).mockResolvedValue({
+      data: {
+        user: { id: "user-1", email: "user@example.com" },
+        session: {
+          access_token: "token",
+          refresh_token: "refresh",
+          expires_in: 3600,
+        },
+      },
+      error: null,
+    });
+    const response = createResponse();
+    await signInHandler(
+      {
+        method: "POST",
+        body: { email: "user@example.com", password: "password123" },
+      } as VercelRequest,
+      response.res
+    );
+    expect(response.headers.get("set-cookie")).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining(
+          "condohub-membership=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0"
+        ),
+      ])
+    );
+  });
+
+  it("uses the provider identity, not client-supplied identity, when confirming a session", async () => {
+    vi.mocked(getUser).mockResolvedValue({
+      id: "user-1",
+      email: "user@example.com",
+    });
+    vi.mocked(activateInvitationForAuthenticatedUser).mockResolvedValue({
+      ok: true,
+      attempted: true,
+      membershipId: 77,
+    });
+    const response = createResponse();
+    await sessionHandler(
+      {
+        method: "POST",
+        body: {
+          accessToken: "token",
+          refreshToken: "refresh",
+          inviteToken: "a".repeat(32),
+          email: "attacker@example.com",
+          userId: 99,
+        },
+      } as VercelRequest,
+      response.res
+    );
+    expect(activateInvitationForAuthenticatedUser).toHaveBeenCalledWith(
+      "a".repeat(32),
+      42,
+      "user@example.com"
+    );
+    expect(response.body).toMatchObject({
+      inviteAccepted: true,
+      membershipId: 77,
+    });
+  });
+
+  it("rejects an invalid confirmation session without cookies", async () => {
+    vi.mocked(getUser).mockResolvedValue(null);
+    const response = createResponse();
+    await sessionHandler(
+      {
+        method: "POST",
+        body: { accessToken: "bad", refreshToken: "bad" },
+      } as VercelRequest,
+      response.res
+    );
+    expect(response.statusCode).toBe(401);
+    expect(response.headers.has("set-cookie")).toBe(false);
+  });
+
+  it("returns a recoverable 503 instead of throwing on provider failure", async () => {
+    vi.mocked(getUser).mockRejectedValue(new Error("provider unavailable"));
+    const response = createResponse();
+    await sessionHandler(
+      {
+        method: "POST",
+        body: { accessToken: "bad", refreshToken: "bad" },
+      } as VercelRequest,
+      response.res
+    );
+    expect(response.statusCode).toBe(503);
+    expect(response.headers.has("set-cookie")).toBe(false);
   });
 
   it("expires auth and context cookies on sign-out", () => {
@@ -192,11 +345,15 @@ describe("serverless Supabase auth handlers", () => {
 
     expect(response.statusCode).toBe(200);
     const cookies = response.headers.get("set-cookie");
-    expect(cookies).toEqual(expect.arrayContaining([
-      expect.stringContaining("sb-access-token="),
-      expect.stringContaining("sb-refresh-token="),
-      expect.stringContaining("condohub-membership="),
-    ]));
-    expect((cookies as string[]).every(cookie => cookie.includes("Max-Age=0"))).toBe(true);
+    expect(cookies).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("sb-access-token="),
+        expect.stringContaining("sb-refresh-token="),
+        expect.stringContaining("condohub-membership="),
+      ])
+    );
+    expect(
+      (cookies as string[]).every(cookie => cookie.includes("Max-Age=0"))
+    ).toBe(true);
   });
 });
