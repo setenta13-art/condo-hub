@@ -37,19 +37,38 @@ export function getSessionCookieOptions(
   };
 }
 
-// Preserve refreshed auth cookies when a mutation selects a membership.
-export function appendResponseCookie(
-  res: {
-    get(name: string): unknown;
-    set(name: string, value: string[]): unknown;
-  },
-  cookie: string
+// Serverless compilation may resolve Express without its inherited Node methods.
+// Validate the runtime response at this adapter boundary rather than casting callers.
+type HeaderResponse = {
+  getHeader(name: string): unknown;
+  setHeader(name: string, value: string | string[]): unknown;
+};
+function headerResponse(value: unknown): HeaderResponse {
+  const response = value as Partial<HeaderResponse> | null;
+  if (
+    !response ||
+    typeof response.getHeader !== "function" ||
+    typeof response.setHeader !== "function"
+  ) {
+    throw new Error("Invalid HTTP response adapter");
+  }
+  return response as HeaderResponse;
+}
+export function writeResponseHeader(
+  response: unknown,
+  name: string,
+  value: string | string[]
 ) {
-  const existing = res.get("Set-Cookie");
+  headerResponse(response).setHeader(name, value);
+}
+// Preserve refreshed auth cookies when a mutation selects a membership.
+export function appendResponseCookie(response: unknown, cookie: string) {
+  const res = headerResponse(response);
+  const existing = res.getHeader("Set-Cookie");
   const cookies = Array.isArray(existing)
     ? existing.map(String)
     : typeof existing === "string"
       ? [existing]
       : [];
-  res.set("Set-Cookie", [...cookies, cookie]);
+  res.setHeader("Set-Cookie", [...cookies, cookie]);
 }

@@ -31,7 +31,7 @@ function context(role = "user"): TrpcContext {
     req: { headers: {}, protocol: "https" } as TrpcContext["req"],
     res: {
       setHeader: vi.fn(),
-      get: vi.fn(),
+      getHeader: vi.fn(),
       set: vi.fn(),
     } as unknown as TrpcContext["res"],
   };

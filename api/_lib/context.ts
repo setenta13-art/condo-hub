@@ -1,3 +1,4 @@
+import { writeResponseHeader } from "../../server/_core/cookies.js";
 import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
 import { parse as parseCookieHeader } from "cookie";
 import { getUser, refreshSession, syncAppUser } from "./supabase.js";
@@ -66,7 +67,8 @@ export async function createServerlessContext(
       const refreshed = await refreshSession(auth.refreshToken);
       if (refreshed.data.session) {
         accessToken = refreshed.data.session.access_token;
-        opts.res.set(
+        writeResponseHeader(
+          opts.res,
           "Set-Cookie",
           sessionCookies(
             refreshed.data.session.access_token,
@@ -74,7 +76,7 @@ export async function createServerlessContext(
             refreshed.data.session.expires_in
           )
         );
-        opts.res.set("Cache-Control", "private, no-store");
+        writeResponseHeader(opts.res, "Cache-Control", "private, no-store");
         authUser = refreshed.data.user ?? (await getUser(accessToken));
       }
     }
