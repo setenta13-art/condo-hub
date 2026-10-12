@@ -59,3 +59,6 @@ O conector Supabase não expõe Auth URL Configuration. O painel foi aberto e ex
 RLS habilitado sem policies em 14 tabelas: acesso direto anon/authenticated negado por desenho, pois API usa service_role e aplica autorização no servidor. Não interpretar advisor INFO como teste completo de isolamento. Advisor WARN: proteção de senhas vazadas desabilitada; referência: https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection . Backups/restauração, rate limiting, revogação de sessão remota e storage privado permanecem no plano, não foram declarados resolvidos.
 
 Não houve promoção a produção nem exclusão de usuários/convites/vínculos/dados. Migração preserva todos os vínculos e papéis preexistentes; eventual segundo papel sobrescrito antes desta rodada não é reconstruído automaticamente.
+
+## Verificação da compilação serverless
+O preview do commit `21941d1c` ficou READY, porém os logs da etapa serverless registraram incompatibilidades de tipagem de Response/getHeader/setHeader. A continuação troca os métodos herdados do Node pelos métodos `get`/`set` do Express em cookies e no contexto serverless. TypeScript local e os 42 testes passaram novamente; conferir os logs do deploy seguinte, pois READY sozinho não é evidência suficiente.

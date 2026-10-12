@@ -22,22 +22,31 @@ export type TrpcContext = {
 };
 
 function authFromRequest(req: CreateExpressContextOptions["req"]) {
-  const headers = (req as unknown as {
-    headers?: { cookie?: string; authorization?: string | string[] };
-  }).headers;
+  const headers = (
+    req as unknown as {
+      headers?: { cookie?: string; authorization?: string | string[] };
+    }
+  ).headers;
   const cookies = parseCookieHeader(headers?.cookie ?? "");
   const raw = headers?.authorization;
   const authorization = Array.isArray(raw) ? raw[0] : raw;
-  const bearer = authorization?.startsWith("Bearer ") ? authorization.slice(7) : null;
+  const bearer = authorization?.startsWith("Bearer ")
+    ? authorization.slice(7)
+    : null;
   const membership = Number(cookies["condohub-membership"]);
   return {
     accessToken: cookies["sb-access-token"] ?? bearer,
     refreshToken: cookies["sb-refresh-token"] ?? null,
-    activeMembershipId: Number.isInteger(membership) && membership > 0 ? membership : null,
+    activeMembershipId:
+      Number.isInteger(membership) && membership > 0 ? membership : null,
   };
 }
 
-function sessionCookies(accessToken: string, refreshToken: string, expiresIn: number) {
+function sessionCookies(
+  accessToken: string,
+  refreshToken: string,
+  expiresIn: number
+) {
   return [
     `sb-access-token=${accessToken}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${expiresIn}`,
     `sb-refresh-token=${refreshToken}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000`,
@@ -45,7 +54,7 @@ function sessionCookies(accessToken: string, refreshToken: string, expiresIn: nu
 }
 
 export async function createServerlessContext(
-  opts: CreateExpressContextOptions,
+  opts: CreateExpressContextOptions
 ): Promise<TrpcContext> {
   const auth = authFromRequest(opts.req);
   let user: AppUser | null = null;
@@ -57,13 +66,16 @@ export async function createServerlessContext(
       const refreshed = await refreshSession(auth.refreshToken);
       if (refreshed.data.session) {
         accessToken = refreshed.data.session.access_token;
-        opts.res.setHeader("Set-Cookie", sessionCookies(
-          refreshed.data.session.access_token,
-          refreshed.data.session.refresh_token,
-          refreshed.data.session.expires_in,
-        ));
-        opts.res.setHeader("Cache-Control", "private, no-store");
-        authUser = refreshed.data.user ?? await getUser(accessToken);
+        opts.res.set(
+          "Set-Cookie",
+          sessionCookies(
+            refreshed.data.session.access_token,
+            refreshed.data.session.refresh_token,
+            refreshed.data.session.expires_in
+          )
+        );
+        opts.res.set("Cache-Control", "private, no-store");
+        authUser = refreshed.data.user ?? (await getUser(accessToken));
       }
     }
     if (authUser) user = await syncAppUser(authUser);
@@ -71,5 +83,10 @@ export async function createServerlessContext(
     console.warn("[Auth] Supabase session validation failed:", error);
   }
 
-  return { req: opts.req, res: opts.res, user, activeMembershipId: auth.activeMembershipId };
+  return {
+    req: opts.req,
+    res: opts.res,
+    user,
+    activeMembershipId: auth.activeMembershipId,
+  };
 }

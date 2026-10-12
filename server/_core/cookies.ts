@@ -40,16 +40,16 @@ export function getSessionCookieOptions(
 // Preserve refreshed auth cookies when a mutation selects a membership.
 export function appendResponseCookie(
   res: {
-    getHeader(name: string): unknown;
-    setHeader(name: string, value: string[]): unknown;
+    get(name: string): unknown;
+    set(name: string, value: string[]): unknown;
   },
   cookie: string
 ) {
-  const existing = res.getHeader("Set-Cookie");
+  const existing = res.get("Set-Cookie");
   const cookies = Array.isArray(existing)
     ? existing.map(String)
     : typeof existing === "string"
       ? [existing]
       : [];
-  res.setHeader("Set-Cookie", [...cookies, cookie]);
+  res.set("Set-Cookie", [...cookies, cookie]);
 }
