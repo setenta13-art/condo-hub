@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { signIn } from "../api/_lib/supabase.js";
 
 describe("Supabase credentials", () => {
-  const configured = Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY);
+  const configured = Boolean(process.env.RUN_SUPABASE_LIVE_TESTS === "true" && process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY);
 
   it.skipIf(!configured)("can reach the Auth settings endpoint with the configured public key", async () => {
     const rawUrl = process.env.SUPABASE_URL!;
