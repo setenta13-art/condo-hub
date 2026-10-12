@@ -62,3 +62,14 @@ Não houve promoção a produção nem exclusão de usuários/convites/vínculos
 
 ## Verificação da compilação serverless
 O preview do commit `21941d1c` ficou READY, porém os logs da etapa serverless registraram incompatibilidades de tipagem de Response/getHeader/setHeader. O primeiro ajuste para métodos Express também revelou o problema de resolução dos tipos herdados na compilação da Vercel. A solução final centraliza a escrita/leitura de headers em adaptador HTTP com validação de métodos em runtime, mantendo callers tipados e preservando os cookies renovados. TypeScript local e os 42 testes passaram novamente; conferir os logs do deploy seguinte, pois READY sozinho não é evidência suficiente.
+
+## Preview verificado para retestes técnicos
+- Código: `00fb6f8efb8ec4ee446fe717e2d94ffd108d2037`.
+- Vercel: `dpl_5f76wwTatrhE54M5ARYzmoSKqLFA`, READY; GitHub status Vercel success.
+- Build Vercel: 42 testes passaram; etapa serverless final sem os erros de tipagem anteriores.
+- Snapshot: https://condo-akv19v9li-condo-hub.vercel.app/login
+- Host canônico para iniciar convites/login: https://condo-hub-git-fix-invitation-onboarding-20261012-condo-hub.vercel.app/login
+- Smoke de 6 endpoints passou: GET login 200, signup sem convite 403, sessão inválida 401, senha fictícia 401, chamados sem login 401, auth.me público 200.
+- Browser: `/auth/callback` sem sessão mostra erro recuperável e link Voltar ao login; clique abre o formulário de login. Não há spinner indefinido nesse cenário.
+- Última consulta de runtime errors no deploy: nenhum registro no filtro de 5 minutos; essa janela limitada não comprova ausência de todo erro.
+- Redirect Supabase rechecado: callback atual continua descartado (request ID `01a13284-2b0c-718b-9713-3d9385816f2f`). ONB-03 e fluxo positivo completo continuam BLOCKED até login no painel, ajuste de callbacks e e-mail real.
