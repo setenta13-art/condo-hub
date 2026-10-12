@@ -2,10 +2,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useEffect, useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
 
 export default function Login() {
-  const [, navigate] = useLocation();
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -38,6 +37,7 @@ export default function Login() {
       return;
     }
 
+    try {
     const response = await fetch(endpoint, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -62,13 +62,13 @@ export default function Login() {
     if (result.inviteAccepted) {
       localStorage.removeItem("condohub-pending-invite");
       sessionStorage.removeItem("condohub-pending-invite");
-      navigate("/");
-    } else if (pendingInvite) {
-      navigate(`/invite/${pendingInvite}`);
-    } else {
-      navigate("/");
+      // O redirecionamento abaixo aguarda a atualização completa da sessão.
     }
-    window.location.reload();
+    window.location.href = result.inviteAccepted ? "/" : pendingInvite ? `/invite/${encodeURIComponent(pendingInvite)}` : "/";
+    } catch {
+      setBusy(false);
+      setMessage("Falha de conexão. Verifique sua internet e tente novamente.");
+    }
   }
 
   async function recoverPassword() {
