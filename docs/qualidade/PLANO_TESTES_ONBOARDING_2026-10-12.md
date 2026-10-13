@@ -55,3 +55,6 @@
 
 ## Execução técnica desta continuidade
 Consultar `RELATORIO_ONBOARDING_2026-10-12.md`: 42 testes determinísticos e SQL transacional passaram; smoke Auth separado executado. Aceite humano/e2e não concluído. P0 de redirects confirmado em Supabase; e-mail de convites não configurado. Preview técnico autorizado pelo usuário, sem promoção a produção. Gates de liberação permanecem abertos.
+
+### Atualização: callbacks liberados
+Após login no painel, allowlist corrigida e redirecionamentos de confirmação/recuperação aprovados tecnicamente (HTTP 303 preserva host/path/invite). Templates padrão usam ConfirmationURL. O próximo bloqueio de ONB-03 é a ausência de SMTP para destinatários externos; testes de e-mail real e aceite humano permanecem abertos. Ver atualização final no relatório e evidências JSON/JPG.

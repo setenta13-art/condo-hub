@@ -29,7 +29,7 @@ Status: correções técnicas testadas; **homologação completa não aprovada**
 |---|---|
 | ONB-01 | BLOCKED: não há RESEND_API_KEY/INVITE_FROM_EMAIL configurados na Vercel; entrega de convite não comprovada. Link pode ser compartilhado manualmente. |
 | ONB-02 | Token preservado no código; reteste humano/browser com convite real pendente. |
-| ONB-03 | BLOCKED: Supabase rejeita callback do hostname atual; necessário ajustar URL Configuration. |
+| ONB-03 | PASS de redirect e template padrão após correção da allowlist; fluxo positivo com e-mail real BLOCKED por SMTP não configurado. |
 | ONB-04, ONB-06, ONB-07 | PASS técnico de RPC e papéis; confirmação real/e2e pendente. |
 | ONB-05 | Login negativo externo comprovado; login positivo pós-cadastro pendente de confirmação real. |
 | ONB-08, ONB-09 | PASS técnico de RPC e servidor; interface/e2e pendente. |
@@ -73,3 +73,14 @@ O preview do commit `21941d1c` ficou READY, porém os logs da etapa serverless r
 - Browser: `/auth/callback` sem sessão mostra erro recuperável e link Voltar ao login; clique abre o formulário de login. Não há spinner indefinido nesse cenário.
 - Última consulta de runtime errors no deploy: nenhum registro no filtro de 5 minutos; essa janela limitada não comprova ausência de todo erro.
 - Redirect Supabase rechecado: callback atual continua descartado (request ID `01a13284-2b0c-718b-9713-3d9385816f2f`). ONB-03 e fluxo positivo completo continuam BLOCKED até login no painel, ajuste de callbacks e e-mail real.
+
+
+## Atualização após autenticação no painel — callbacks corrigidos
+- Login Supabase concluído por GitHub. Acrescentadas duas entradas restritas do hostname canônico: `/auth/callback**` e `/reset-password**`. Mantidas a entrada anterior e a Site URL existentes; não houve troca de domínio principal nem desativação de confirmação de e-mail.
+- UI confirmou 3 Redirect URLs. Templates padrão Confirm sign up e Reset password usam `{{ .ConfirmationURL }}`; não contêm link fixo ao Site URL antigo.
+- Requisições de teste com token propositalmente inválido retornaram HTTP 303 preservando, respectivamente, o callback de confirmação e o de recuperação, ambos com `?invite=synthetic_test_token_20261012`. Antes da correção, eram descartados e retornavam ao domínio antigo.
+- Request IDs: signup `01a1329c-3e96-74ef-ac25-81f60149cfa7`; recovery `01a1329c-5785-7603-b019-f07d28309fa2`.
+- Evidências: `evidencias/supabase-callbacks-2026-10-12.json` e `evidencias/supabase-callbacks-2026-10-12.jpg`. A imagem está limitada ao painel de URLs, sem contatos pessoais, senhas ou tokens reais.
+- **Novo bloqueio operacional confirmado:** SMTP customizado do Supabase não configurado. Serviço padrão restringe entrega a membros da equipe do projeto. Necessário configurar SMTP para e-mails de confirmação/recuperação de usuários externos; ver https://supabase.com/docs/guides/auth/auth-smtp . Isso é distinto do envio do convite pelo Resend na aplicação, também ainda não configurado.
+- P0 de redirect encerrado tecnicamente; ONB-03 permanece parcial até confirmação real, ativação e login posteriores. Não afirmar que o teste com token inválido confirma entrega, validade de um e-mail real ou homologação do fluxo completo.
+- Contagens após alteração: 6 usuários Auth, 6 app_users, 9 convites, 6 vínculos, 1 administrador global. Nenhum usuário, convite ou vínculo alterado/excluído nesta etapa.

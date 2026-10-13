@@ -1,0 +1,16 @@
+[
+  {
+    "type": "signup",
+    "status": 303,
+    "location": "https://condo-hub-git-fix-invitation-onboarding-20261012-condo-hub.vercel.app/auth/callback?invite=synthetic_test_token_20261012#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired&sb=",
+    "callback_preserved": true,
+    "request_id": "01a1329c-3e96-74ef-ac25-81f60149cfa7"
+  },
+  {
+    "type": "recovery",
+    "status": 303,
+    "location": "https://condo-hub-git-fix-invitation-onboarding-20261012-condo-hub.vercel.app/reset-password?invite=synthetic_test_token_20261012#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired&sb=",
+    "callback_preserved": true,
+    "request_id": "01a1329c-5785-7603-b019-f07d28309fa2"
+  }
+]
