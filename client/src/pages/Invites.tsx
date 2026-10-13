@@ -2,62 +2,574 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { startLogin } from "@/const";
 import { trpc } from "@/lib/trpc";
-import { Check, Clipboard, Copy, Link2, Loader2, Mail, MessageCircle, Plus, RotateCw, ShieldCheck, UserPlus, UsersRound, X } from "lucide-react";
+import {
+  Check,
+  Clipboard,
+  Copy,
+  Link2,
+  Loader2,
+  Mail,
+  MessageCircle,
+  Plus,
+  RotateCw,
+  ShieldCheck,
+  UserPlus,
+  UsersRound,
+  X,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "wouter";
 
-const roles: Record<string, string> = { resident: "Morador", staff: "Funcionário", manager: "Gestor" };
-const statuses: Record<string, string> = { pending: "Pendente", accepted: "Aceito", expired: "Expirado", revoked: "Revogado" };
+const roles: Record<string, string> = {
+  resident: "Morador",
+  staff: "Funcionário",
+  manager: "Gestor",
+};
+const statuses: Record<string, string> = {
+  pending: "Pendente",
+  accepted: "Aceito",
+  expired: "Expirado",
+  revoked: "Revogado",
+};
 
 function formatDate(value: Date | string) {
-  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(value));
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(value));
 }
 
 export default function Invites() {
   const { isAuthenticated, user } = useAuth();
-  const { data: overview } = trpc.condo.dashboard.overview.useQuery(undefined, { enabled: isAuthenticated });
+  const { data: overview } = trpc.condo.dashboard.overview.useQuery(undefined, {
+    enabled: isAuthenticated,
+  });
   const isStaff = overview?.scope?.isStaff ?? false;
-  const { data: invites, isLoading } = trpc.invitations.list.useQuery(undefined, { enabled: isAuthenticated && isStaff });
-  const { data: options } = trpc.invitations.options.useQuery(undefined, { enabled: isAuthenticated && isStaff });
+  const { data: invites, isLoading } = trpc.invitations.list.useQuery(
+    undefined,
+    { enabled: isAuthenticated && isStaff }
+  );
+  const { data: options } = trpc.invitations.options.useQuery(undefined, {
+    enabled: isAuthenticated && isStaff,
+  });
   const utils = trpc.useUtils();
-  const create = trpc.invitations.create.useMutation({ onSuccess: async result => { await utils.invitations.list.invalidate(); setCreated(result); setShowForm(false); } });
-  const revoke = trpc.invitations.revoke.useMutation({ onSuccess: () => utils.invitations.list.invalidate() });
-  const resend = trpc.invitations.resend.useMutation({ onSuccess: async result => { await utils.invitations.list.invalidate(); setCreated(result); } });
+  const create = trpc.invitations.create.useMutation({
+    onSuccess: async result => {
+      setCreated(result);
+      await utils.invitations.list.invalidate();
+      setShowForm(false);
+    },
+  });
+  const revoke = trpc.invitations.revoke.useMutation({
+    onSuccess: () => utils.invitations.list.invalidate(),
+  });
+  const resend = trpc.invitations.resend.useMutation({
+    onSuccess: async result => {
+      setCreated(result);
+      await utils.invitations.list.invalidate();
+    },
+  });
   const [showForm, setShowForm] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [created, setCreated] = useState<{ token: string; expiresAt: Date; email: string | null; phone: string | null; condominiumName: string; emailDelivery?: string } | null>(null);
-  const [form, setForm] = useState({ email: "", phone: "", role: "resident" as "resident" | "staff" | "manager", unit: "", block: "" });
+  const [created, setCreated] = useState<{
+    token: string;
+    expiresAt: Date;
+    email: string | null;
+    phone: string | null;
+    condominiumName: string;
+    emailDelivery?: string;
+  } | null>(null);
+  const [form, setForm] = useState({
+    email: "",
+    phone: "",
+    role: "resident" as "resident" | "staff" | "manager",
+    unit: "",
+    block: "",
+  });
   const availableUnits = useMemo(() => {
-    const blockId = options?.blocks.find(block => block.name === form.block)?.id;
-    return options?.units.filter(unit => !blockId || unit.blockId === blockId) ?? [];
+    const blockId = options?.blocks.find(
+      block => block.name === form.block
+    )?.id;
+    return (
+      options?.units.filter(unit => !blockId || unit.blockId === blockId) ?? []
+    );
   }, [form.block, options?.blocks, options?.units]);
 
-  const inviteUrl = created ? `${window.location.origin}/invite/${created.token}` : "";
-  const whatsappBody = created ? `Olá! Você foi convidado para acessar o ${created.condominiumName} no CondoHub. Acesse: ${inviteUrl} (válido até ${formatDate(created.expiresAt)}).` : "";
-  const whatsappUrl = created?.phone ? `https://wa.me/${created.phone}?text=${encodeURIComponent(whatsappBody)}` : "";
-  const copyLink = async () => { await navigator.clipboard?.writeText(inviteUrl); setCopied(true); setTimeout(() => setCopied(false), 1800); };
+  const inviteUrl = created
+    ? `${window.location.origin}/invite/${created.token}`
+    : "";
+  const whatsappBody = created
+    ? `Olá! Você foi convidado para acessar o ${created.condominiumName} no CondoHub. Acesse: ${inviteUrl} (válido até ${formatDate(created.expiresAt)}).`
+    : "";
+  const whatsappUrl = created?.phone
+    ? `https://wa.me/${created.phone}?text=${encodeURIComponent(whatsappBody)}`
+    : "";
+  const copyLink = async () => {
+    await navigator.clipboard?.writeText(inviteUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  };
 
   if (!isAuthenticated) {
-    return <div className="mx-auto max-w-xl rounded-2xl border border-dashed border-primary/25 bg-primary/[0.04] p-8 text-center"><UserPlus className="mx-auto h-8 w-8 text-primary" /><h1 className="mt-4 text-xl font-extrabold">Convites da equipe</h1><p className="mt-2 text-sm text-muted-foreground">Entre para gerar e acompanhar convites do seu condomínio.</p><Button onClick={() => startLogin()} className="mt-5 rounded-xl">Entrar na plataforma</Button></div>;
+    return (
+      <div className="mx-auto max-w-xl rounded-2xl border border-dashed border-primary/25 bg-primary/[0.04] p-8 text-center">
+        <UserPlus className="mx-auto h-8 w-8 text-primary" />
+        <h1 className="mt-4 text-xl font-extrabold">Convites da equipe</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Entre para gerar e acompanhar convites do seu condomínio.
+        </p>
+        <Button onClick={() => startLogin()} className="mt-5 rounded-xl">
+          Entrar na plataforma
+        </Button>
+      </div>
+    );
   }
 
   if (!isStaff) {
-    const isUnconfiguredPlatformAdmin = user?.role === "admin" && !overview?.scope;
-    return <div className="mx-auto max-w-xl rounded-2xl border border-border/80 bg-card p-8 text-center"><ShieldCheck className="mx-auto h-8 w-8 text-muted-foreground" /><h1 className="mt-4 text-xl font-extrabold">{isUnconfiguredPlatformAdmin ? "Configure o primeiro condomínio" : "Acesso restrito"}</h1><p className="mt-2 text-sm text-muted-foreground">{isUnconfiguredPlatformAdmin ? "Seu acesso de administrador está ativo. Cadastre a estrutura inicial para liberar convites e responsáveis." : "A geração de convites está disponível para gestores e funcionários autorizados."}</p><Link href={isUnconfiguredPlatformAdmin ? "/setup" : "/"} className="mt-5 inline-flex text-sm font-bold text-primary">{isUnconfiguredPlatformAdmin ? "Ir para configuração" : "Voltar para a visão geral"}</Link></div>;
+    const isUnconfiguredPlatformAdmin =
+      user?.role === "admin" && !overview?.scope;
+    return (
+      <div className="mx-auto max-w-xl rounded-2xl border border-border/80 bg-card p-8 text-center">
+        <ShieldCheck className="mx-auto h-8 w-8 text-muted-foreground" />
+        <h1 className="mt-4 text-xl font-extrabold">
+          {isUnconfiguredPlatformAdmin
+            ? "Configure o primeiro condomínio"
+            : "Acesso restrito"}
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {isUnconfiguredPlatformAdmin
+            ? "Seu acesso de administrador está ativo. Cadastre a estrutura inicial para liberar convites e responsáveis."
+            : "A geração de convites está disponível para gestores e funcionários autorizados."}
+        </p>
+        <Link
+          href={isUnconfiguredPlatformAdmin ? "/setup" : "/"}
+          className="mt-5 inline-flex text-sm font-bold text-primary"
+        >
+          {isUnconfiguredPlatformAdmin
+            ? "Ir para configuração"
+            : "Voltar para a visão geral"}
+        </Link>
+      </div>
+    );
   }
 
   return (
     <div className="mx-auto max-w-[1100px] space-y-7">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-primary"><UsersRound className="h-3.5 w-3.5" /> Gestão de acesso</div><h1 className="text-2xl font-extrabold tracking-[-0.04em] sm:text-3xl">Convites</h1><p className="mt-1 text-sm text-muted-foreground">Vincule novos moradores e colaboradores ao condomínio em poucos passos.</p></div><Button onClick={() => { setShowForm(value => !value); setCreated(null); }} className="rounded-xl">{showForm ? <X className="mr-2 h-4 w-4" /> : <Plus className="mr-2 h-4 w-4" />}{showForm ? "Fechar" : "Novo convite"}</Button></header>
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-primary">
+            <UsersRound className="h-3.5 w-3.5" /> Gestão de acesso
+          </div>
+          <h1 className="text-2xl font-extrabold tracking-[-0.04em] sm:text-3xl">
+            Convites
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Vincule novos moradores e colaboradores ao condomínio em poucos
+            passos.
+          </p>
+        </div>
+        <Button
+          onClick={() => {
+            setShowForm(value => !value);
+            setCreated(null);
+            setForm({
+              email: "",
+              phone: "",
+              role: "resident",
+              unit: "",
+              block: "",
+            });
+          }}
+          className="rounded-xl"
+        >
+          {showForm ? (
+            <X className="mr-2 h-4 w-4" />
+          ) : (
+            <Plus className="mr-2 h-4 w-4" />
+          )}
+          {showForm ? "Fechar" : "Novo convite"}
+        </Button>
+      </header>
 
-      <section className="grid gap-4 sm:grid-cols-3"><div className="rounded-2xl border border-border/80 bg-card p-5"><p className="text-2xl font-extrabold">{invites?.filter(invite => invite.status === "pending").length ?? 0}</p><p className="mt-1 text-xs font-semibold text-muted-foreground">aguardando aceite</p></div><div className="rounded-2xl border border-border/80 bg-card p-5"><p className="text-2xl font-extrabold">{invites?.filter(invite => invite.status === "accepted").length ?? 0}</p><p className="mt-1 text-xs font-semibold text-muted-foreground">vínculos concluídos</p></div><div className="rounded-2xl border border-border/80 bg-card p-5"><p className="text-2xl font-extrabold">7 dias</p><p className="mt-1 text-xs font-semibold text-muted-foreground">validade padrão</p></div></section>
+      <section className="grid gap-4 sm:grid-cols-3">
+        <div className="rounded-2xl border border-border/80 bg-card p-5">
+          <p className="text-2xl font-extrabold">
+            {invites?.filter(invite => invite.status === "pending").length ?? 0}
+          </p>
+          <p className="mt-1 text-xs font-semibold text-muted-foreground">
+            aguardando aceite
+          </p>
+        </div>
+        <div className="rounded-2xl border border-border/80 bg-card p-5">
+          <p className="text-2xl font-extrabold">
+            {invites?.filter(invite => invite.status === "accepted").length ??
+              0}
+          </p>
+          <p className="mt-1 text-xs font-semibold text-muted-foreground">
+            vínculos concluídos
+          </p>
+        </div>
+        <div className="rounded-2xl border border-border/80 bg-card p-5">
+          <p className="text-2xl font-extrabold">7 dias</p>
+          <p className="mt-1 text-xs font-semibold text-muted-foreground">
+            validade padrão
+          </p>
+        </div>
+      </section>
 
-      {showForm && <form onSubmit={event => { event.preventDefault(); create.mutate({ ...form, email: form.email.trim(), phone: form.phone.trim() }); }} className="rounded-2xl border border-primary/20 bg-primary/[0.04] p-5 sm:p-6"><div className="mb-5 flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground"><UserPlus className="h-4 w-4" /></div><div><h2 className="font-extrabold">Gerar novo convite</h2><p className="text-xs text-muted-foreground">Informe pelo menos e-mail ou WhatsApp. O convite ficará válido por 7 dias.</p></div></div><div className="grid gap-4 sm:grid-cols-2"><label><span className="mb-1.5 block text-xs font-bold">E-mail <span className="font-normal text-muted-foreground">(opcional)</span></span><input type="email" value={form.email} onChange={event => setForm({ ...form, email: event.target.value })} placeholder="morador@email.com" className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15" /></label><label><span className="mb-1.5 block text-xs font-bold">WhatsApp <span className="font-normal text-muted-foreground">(opcional)</span></span><input type="tel" value={form.phone} onChange={event => setForm({ ...form, phone: event.target.value })} placeholder="(11) 99999-9999" className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15" /></label><label><span className="mb-1.5 block text-xs font-bold">Perfil de acesso</span><select value={form.role} onChange={event => setForm({ ...form, role: event.target.value as typeof form.role })} className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none focus:border-primary"><option value="resident">Morador</option><option value="staff">Funcionário</option><option value="manager">Gestor</option></select></label><label><span className="mb-1.5 block text-xs font-bold">Bloco <span className="font-normal text-muted-foreground">(opcional para equipe)</span></span><select value={form.block} onChange={event => setForm({ ...form, block: event.target.value, unit: "" })} className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none focus:border-primary"><option value="">Selecione o bloco</option>{options?.blocks.map(block => <option key={block.id} value={block.name}>{block.name}</option>)}</select></label><label><span className="mb-1.5 block text-xs font-bold">Unidade {form.role === "resident" && <span className="font-normal text-destructive">(obrigatória)</span>}</span><select value={form.unit} onChange={event => setForm({ ...form, unit: event.target.value })} className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none focus:border-primary"><option value="">{availableUnits.length ? "Selecione a unidade" : "Cadastre unidades primeiro"}</option>{availableUnits.map(unit => <option key={unit.id} value={unit.identifier}>{unit.identifier}</option>)}</select></label><div className="rounded-xl border border-border bg-background px-3 py-2.5"><p className="text-xs font-bold">Validade</p><p className="mt-1 text-sm text-muted-foreground">7 dias (padrão)</p></div></div>{create.error && <p className="mt-4 rounded-xl bg-destructive/10 px-3 py-2 text-xs font-semibold text-destructive">{create.error.message}</p>}<div className="mt-5 flex justify-end"><Button type="submit" disabled={create.isPending} className="rounded-xl">{create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Gerar convite</Button></div></form>}
+      {showForm && (
+        <form
+          onSubmit={event => {
+            event.preventDefault();
+            create.mutate({
+              ...form,
+              email: form.email.trim(),
+              phone: form.phone.trim(),
+            });
+          }}
+          className="rounded-2xl border border-primary/20 bg-primary/[0.04] p-5 sm:p-6"
+        >
+          <div className="mb-5 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+              <UserPlus className="h-4 w-4" />
+            </div>
+            <div>
+              <h2 className="font-extrabold">Gerar novo convite</h2>
+              <p className="text-xs text-muted-foreground">
+                Informe pelo menos e-mail ou WhatsApp. O convite ficará válido
+                por 7 dias.
+              </p>
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label>
+              <span className="mb-1.5 block text-xs font-bold">
+                E-mail{" "}
+                <span className="font-normal text-muted-foreground">
+                  (opcional)
+                </span>
+              </span>
+              <input
+                type="email"
+                value={form.email}
+                onChange={event =>
+                  setForm({ ...form, email: event.target.value })
+                }
+                placeholder="morador@email.com"
+                className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+              />
+            </label>
+            <label>
+              <span className="mb-1.5 block text-xs font-bold">
+                WhatsApp{" "}
+                <span className="font-normal text-muted-foreground">
+                  (opcional)
+                </span>
+              </span>
+              <input
+                type="tel"
+                value={form.phone}
+                onChange={event =>
+                  setForm({ ...form, phone: event.target.value })
+                }
+                placeholder="(11) 99999-9999"
+                className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+              />
+            </label>
+            <label>
+              <span className="mb-1.5 block text-xs font-bold">
+                Perfil de acesso
+              </span>
+              <select
+                value={form.role}
+                onChange={event =>
+                  setForm({
+                    ...form,
+                    role: event.target.value as typeof form.role,
+                  })
+                }
+                className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none focus:border-primary"
+              >
+                <option value="resident">Morador</option>
+                <option value="staff">Funcionário</option>
+                <option value="manager">Gestor</option>
+              </select>
+            </label>
+            <label>
+              <span className="mb-1.5 block text-xs font-bold">
+                Bloco{" "}
+                <span className="font-normal text-muted-foreground">
+                  (opcional para equipe)
+                </span>
+              </span>
+              <select
+                value={form.block}
+                onChange={event =>
+                  setForm({ ...form, block: event.target.value, unit: "" })
+                }
+                className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none focus:border-primary"
+              >
+                <option value="">Selecione o bloco</option>
+                {options?.blocks.map(block => (
+                  <option key={block.id} value={block.name}>
+                    {block.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span className="mb-1.5 block text-xs font-bold">
+                Unidade{" "}
+                {form.role === "resident" && (
+                  <span className="font-normal text-destructive">
+                    (obrigatória)
+                  </span>
+                )}
+              </span>
+              <select
+                value={form.unit}
+                onChange={event =>
+                  setForm({ ...form, unit: event.target.value })
+                }
+                className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none focus:border-primary"
+              >
+                <option value="">
+                  {availableUnits.length
+                    ? "Selecione a unidade"
+                    : "Cadastre unidades primeiro"}
+                </option>
+                {availableUnits.map(unit => (
+                  <option key={unit.id} value={unit.identifier}>
+                    {unit.identifier}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="rounded-xl border border-border bg-background px-3 py-2.5">
+              <p className="text-xs font-bold">Validade</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                7 dias (padrão)
+              </p>
+            </div>
+          </div>
+          {create.error && (
+            <p className="mt-4 rounded-xl bg-destructive/10 px-3 py-2 text-xs font-semibold text-destructive">
+              {create.error.message}
+            </p>
+          )}
+          <div className="mt-5 flex justify-end">
+            <Button
+              type="submit"
+              disabled={create.isPending}
+              className="rounded-xl"
+            >
+              {create.isPending && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Gerar convite
+            </Button>
+          </div>
+        </form>
+      )}
 
-      {created && <section className="rounded-2xl border border-[#bfe8c9] bg-[#e4f5e8] p-5 sm:p-6"><div className="flex items-start gap-3"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#2b8b50] text-white"><Check className="h-5 w-5" /></div><div className="min-w-0 flex-1"><h2 className="font-extrabold text-[#236f40]">Convite pronto para enviar</h2><p className="mt-1 text-xs text-[#3d7650]">{created.email ? `O convite está preparado para ${created.email}.` : created.phone ? "O convite está pronto para envio pelo WhatsApp informado." : "Copie o link e envie pelo canal de sua preferência."} Válido até {formatDate(created.expiresAt)}.</p><div className="mt-4 flex flex-col gap-2 sm:flex-row"><div className="flex min-w-0 flex-1 items-center rounded-xl border border-[#bfe8c9] bg-white px-3 text-xs text-muted-foreground"><Link2 className="mr-2 h-4 w-4 shrink-0 text-[#2b8b50]" /><span className="truncate">{inviteUrl}</span></div><Button type="button" onClick={copyLink} variant="outline" className="rounded-xl border-[#9bd2ab] bg-white text-[#236f40] hover:bg-white">{copied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}{copied ? "Copiado" : "Copiar link"}</Button>{created.email && <span className="inline-flex h-10 items-center justify-center rounded-xl bg-white px-4 text-sm font-bold text-[#236f40]"><Mail className="mr-2 h-4 w-4" />{created.emailDelivery === "sent" ? "E-mail enviado" : created.emailDelivery === "failed" ? "Falha no e-mail" : "E-mail pendente"}</span>}{created.phone && <a href={whatsappUrl} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center justify-center rounded-xl bg-[#2b8b50] px-4 text-sm font-bold text-white transition hover:bg-[#236f40]"><MessageCircle className="mr-2 h-4 w-4" />Abrir WhatsApp</a>}</div></div></div></section>}
+      {resend.error && (
+        <p
+          role="alert"
+          className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        >
+          Não foi possível reenviar: {resend.error.message}
+        </p>
+      )}
+      {revoke.error && (
+        <p
+          role="alert"
+          className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        >
+          Não foi possível revogar: {revoke.error.message}
+        </p>
+      )}
+      {created?.email && created.emailDelivery !== "sent" && (
+        <p
+          role="alert"
+          className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        >
+          {created.emailDelivery === "not_configured"
+            ? "O envio automático de e-mail não está configurado nesta versão. Abra o endereço de homologação atualizado ou copie o link do convite."
+            : "O provedor não confirmou o envio deste e-mail. O convite continua válido; copie o link ou tente reenviar. Se persistir, confira o status do remetente e os registros na Brevo."}
+        </p>
+      )}
+      {created && (
+        <section className="rounded-2xl border border-[#bfe8c9] bg-[#e4f5e8] p-5 sm:p-6">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#2b8b50] text-white">
+              <Check className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="font-extrabold text-[#236f40]">
+                Convite pronto para enviar
+              </h2>
+              <p className="mt-1 text-xs text-[#3d7650]">
+                {created.email
+                  ? `O convite está preparado para ${created.email}.`
+                  : created.phone
+                    ? "O convite está pronto para envio pelo WhatsApp informado."
+                    : "Copie o link e envie pelo canal de sua preferência."}{" "}
+                Válido até {formatDate(created.expiresAt)}.
+              </p>
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                <div className="flex min-w-0 flex-1 items-center rounded-xl border border-[#bfe8c9] bg-white px-3 text-xs text-muted-foreground">
+                  <Link2 className="mr-2 h-4 w-4 shrink-0 text-[#2b8b50]" />
+                  <span className="truncate">{inviteUrl}</span>
+                </div>
+                <Button
+                  type="button"
+                  onClick={copyLink}
+                  variant="outline"
+                  className="rounded-xl border-[#9bd2ab] bg-white text-[#236f40] hover:bg-white"
+                >
+                  {copied ? (
+                    <Check className="mr-2 h-4 w-4" />
+                  ) : (
+                    <Copy className="mr-2 h-4 w-4" />
+                  )}
+                  {copied ? "Copiado" : "Copiar link"}
+                </Button>
+                {created.email && (
+                  <span className="inline-flex h-10 items-center justify-center rounded-xl bg-white px-4 text-sm font-bold text-[#236f40]">
+                    <Mail className="mr-2 h-4 w-4" />
+                    {created.emailDelivery === "sent"
+                      ? "E-mail enviado"
+                      : created.emailDelivery === "failed"
+                        ? "Falha no e-mail"
+                        : "E-mail pendente"}
+                  </span>
+                )}
+                {created.phone && (
+                  <a
+                    href={whatsappUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex h-10 items-center justify-center rounded-xl bg-[#2b8b50] px-4 text-sm font-bold text-white transition hover:bg-[#236f40]"
+                  >
+                    <MessageCircle className="mr-2 h-4 w-4" />
+                    Abrir WhatsApp
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
-      <section className="rounded-2xl border border-border/80 bg-card p-5 sm:p-6"><div className="mb-5 flex items-center justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">Histórico</p><h2 className="mt-1 text-lg font-extrabold tracking-[-0.03em]">Convites enviados</h2></div><span className="rounded-full bg-muted px-3 py-1.5 text-xs font-bold text-muted-foreground">{invites?.length ?? 0} no total</span></div>{isLoading ? <div className="flex items-center justify-center p-8 text-sm text-muted-foreground"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando convites...</div> : invites?.length ? <div className="space-y-3">{invites.map(invite => <div key={invite.id} className="flex flex-col gap-3 rounded-xl border border-border/70 p-4 sm:flex-row sm:items-center sm:justify-between"><div className="flex min-w-0 items-center gap-3"><div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${invite.status === "accepted" ? "bg-[#e4f5e8] text-[#2b8b50]" : invite.status === "pending" ? "bg-[#fff3d9] text-[#b77a20]" : "bg-muted text-muted-foreground"}`}>{invite.status === "accepted" ? <Check className="h-4 w-4" /> : invite.status === "pending" ? <Mail className="h-4 w-4" /> : <Clipboard className="h-4 w-4" />}</div><div className="min-w-0"><p className="truncate text-sm font-bold">{invite.email || (invite.phone ? `WhatsApp +${invite.phone}` : "Convite por link")}</p><p className="mt-1 text-[11px] text-muted-foreground">{roles[invite.role]}{invite.block ? ` · ${invite.block}` : ""}{invite.unit ? ` · unidade ${invite.unit}` : ""} · criado em {formatDate(invite.createdAt)}</p></div></div><div className="flex items-center gap-2 pl-12 sm:pl-0"><span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${invite.status === "accepted" ? "bg-[#e4f5e8] text-[#2b8b50]" : invite.status === "pending" ? "bg-[#fff3d9] text-[#a96c12]" : "bg-muted text-muted-foreground"}`}>{statuses[invite.status]}</span>{invite.status === "pending" && <><button onClick={() => resend.mutate({ id: invite.id })} className="rounded-lg px-2.5 py-1.5 text-[10px] font-bold text-primary transition hover:bg-primary/10"><RotateCw className="mr-1 inline h-3 w-3" />Reenviar</button><button onClick={() => revoke.mutate({ id: invite.id })} className="rounded-lg px-2.5 py-1.5 text-[10px] font-bold text-destructive transition hover:bg-destructive/10">Revogar</button></>}</div></div>)}</div> : <div className="rounded-xl bg-muted/60 p-8 text-center"><UserPlus className="mx-auto h-6 w-6 text-muted-foreground" /><p className="mt-3 text-sm font-bold">Nenhum convite enviado ainda</p><p className="mt-1 text-xs text-muted-foreground">Gere o primeiro convite para começar a vincular moradores.</p></div>}</section>
-      <Link href="/" className="inline-flex text-xs font-bold text-primary">← Voltar para a visão geral</Link>
+      <section className="rounded-2xl border border-border/80 bg-card p-5 sm:p-6">
+        <div className="mb-5 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">
+              Histórico
+            </p>
+            <h2 className="mt-1 text-lg font-extrabold tracking-[-0.03em]">
+              Convites enviados
+            </h2>
+          </div>
+          <span className="rounded-full bg-muted px-3 py-1.5 text-xs font-bold text-muted-foreground">
+            {invites?.length ?? 0} no total
+          </span>
+        </div>
+        {isLoading ? (
+          <div className="flex items-center justify-center p-8 text-sm text-muted-foreground">
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando
+            convites...
+          </div>
+        ) : invites?.length ? (
+          <div className="space-y-3">
+            {invites.map(invite => (
+              <div
+                key={invite.id}
+                className="flex flex-col gap-3 rounded-xl border border-border/70 p-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <div
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${invite.status === "accepted" ? "bg-[#e4f5e8] text-[#2b8b50]" : invite.status === "pending" ? "bg-[#fff3d9] text-[#b77a20]" : "bg-muted text-muted-foreground"}`}
+                  >
+                    {invite.status === "accepted" ? (
+                      <Check className="h-4 w-4" />
+                    ) : invite.status === "pending" ? (
+                      <Mail className="h-4 w-4" />
+                    ) : (
+                      <Clipboard className="h-4 w-4" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold">
+                      {invite.email ||
+                        (invite.phone
+                          ? `WhatsApp +${invite.phone}`
+                          : "Convite por link")}
+                    </p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {roles[invite.role]}
+                      {invite.block ? ` · ${invite.block}` : ""}
+                      {invite.unit ? ` · unidade ${invite.unit}` : ""} · criado
+                      em {formatDate(invite.createdAt)}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 pl-12 sm:pl-0">
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${invite.status === "accepted" ? "bg-[#e4f5e8] text-[#2b8b50]" : invite.status === "pending" ? "bg-[#fff3d9] text-[#a96c12]" : "bg-muted text-muted-foreground"}`}
+                  >
+                    {statuses[invite.status]}
+                  </span>
+                  {invite.status === "pending" && (
+                    <>
+                      <button
+                        disabled={resend.isPending || revoke.isPending}
+                        onClick={() => {
+                          resend.reset();
+                          setCreated(null);
+                          resend.mutate({ id: invite.id });
+                        }}
+                        className="rounded-lg px-2.5 py-1.5 text-[10px] font-bold text-primary transition hover:bg-primary/10"
+                      >
+                        {resend.isPending &&
+                        resend.variables?.id === invite.id ? (
+                          <Loader2 className="mr-1 inline h-3 w-3 animate-spin" />
+                        ) : (
+                          <RotateCw className="mr-1 inline h-3 w-3" />
+                        )}
+                        {resend.isPending && resend.variables?.id === invite.id
+                          ? "Reenviando..."
+                          : "Reenviar"}
+                      </button>
+                      <button
+                        disabled={resend.isPending || revoke.isPending}
+                        onClick={() => revoke.mutate({ id: invite.id })}
+                        className="rounded-lg px-2.5 py-1.5 text-[10px] font-bold text-destructive transition hover:bg-destructive/10"
+                      >
+                        Revogar
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-xl bg-muted/60 p-8 text-center">
+            <UserPlus className="mx-auto h-6 w-6 text-muted-foreground" />
+            <p className="mt-3 text-sm font-bold">
+              Nenhum convite enviado ainda
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Gere o primeiro convite para começar a vincular moradores.
+            </p>
+          </div>
+        )}
+      </section>
+      <Link href="/" className="inline-flex text-xs font-bold text-primary">
+        ← Voltar para a visão geral
+      </Link>
     </div>
   );
 }

@@ -325,20 +325,17 @@ export const invitationRouter = router({
           message: "Funcionários só podem reenviar convites de moradores.",
         });
       }
-      await revokeInvitation(previous.id, scope.condominium.id);
-      const token = nanoid(32);
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-      const replacement = await createInvitation({
-        condominiumId: scope.condominium.id,
-        createdById: ctx.user.id,
-        email: previous.email?.trim().toLowerCase() || null,
-        phone: previous.phone ?? null,
-        token,
-        role: previous.role,
-        unit: previous.unit,
-        block: previous.block,
-        expiresAt,
-      });
+      if (previous.expiresAt.getTime() <= Date.now()) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Este convite expirou. Gere um novo convite para renovar o acesso.",
+        });
+      }
+      // A resend retries delivery, never invalidates a previously shared link.
+      // In particular, provider failures must not revoke a usable invitation.
+      const replacement = previous;
+      const { token, expiresAt } = previous;
 
       const headers = (ctx.req as any).headers ?? {};
       const proto = Array.isArray(headers["x-forwarded-proto"])
