@@ -1,5 +1,5 @@
 import { trpc } from "@/lib/trpc";
-import { UNAUTHED_ERR_MSG } from '@shared/const';
+import { UNAUTHED_ERR_MSG } from "@shared/const";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { httpBatchLink, TRPCClientError } from "@trpc/client";
 import { createRoot } from "react-dom/client";
@@ -42,11 +42,25 @@ const trpcClient = trpc.createClient({
     httpBatchLink({
       url: "/api/trpc",
       transformer: superjson,
-      fetch(input, init) {
-        return globalThis.fetch(input, {
-          ...(init ?? {}),
-          credentials: "include",
-        });
+      async fetch(input, init) {
+        const timeout = AbortSignal.timeout(30000);
+        const signal = init?.signal
+          ? AbortSignal.any([init.signal, timeout])
+          : timeout;
+        try {
+          return await globalThis.fetch(input, {
+            ...(init ?? {}),
+            credentials: "include",
+            signal,
+          });
+        } catch (error) {
+          if (timeout.aborted) {
+            throw new Error(
+              "A solicitação não respondeu em 30 segundos. Atualize a lista antes de repetir a operação."
+            );
+          }
+          throw error;
+        }
       },
     }),
   ],

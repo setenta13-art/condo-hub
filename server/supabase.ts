@@ -146,6 +146,9 @@ export async function supabaseAdminFetch(
   const key = serviceRoleKey();
   return fetch(`${supabaseUrl()}/rest/v1/${path.replace(/^\//, "")}`, {
     ...init,
+    signal: init.signal
+      ? AbortSignal.any([init.signal, AbortSignal.timeout(15000)])
+      : AbortSignal.timeout(15000),
     headers: {
       apikey: key,
       Authorization: `Bearer ${key}`,
