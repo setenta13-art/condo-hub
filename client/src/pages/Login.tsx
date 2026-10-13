@@ -66,7 +66,13 @@ export default function Login() {
         return;
       }
       if (result.needsEmailConfirmation) {
-        setMessage("Cadastro criado. Confirme seu e-mail antes de entrar.");
+        // Supabase deliberately returns success for an already confirmed account
+        // too. Never claim that a new account or confirmation email was created.
+        setMessage(
+          "Solicitação recebida. Se este e-mail ainda não tinha cadastro, confira a mensagem de confirmação, inclusive no spam. Se já possui conta, entre com a senha anterior ou use “Esqueci minha senha”."
+        );
+        setMode("login");
+        setPassword("");
         return;
       }
       if (result.inviteAccepted) {
@@ -131,7 +137,9 @@ export default function Login() {
           {mode === "login" ? "Entrar na sua conta" : "Criar acesso"}
         </h1>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Use o e-mail autorizado pela administração do seu condomínio.
+          {mode === "signup"
+            ? "Crie um acesso apenas se ainda não possui conta no CondoHub. Para aceitar outro convite, use sua conta existente."
+            : "Use o e-mail autorizado pela administração do seu condomínio."}
         </p>
         <form onSubmit={submit} className="mt-7 space-y-4">
           {mode === "signup" && (
@@ -167,7 +175,10 @@ export default function Login() {
             />
           </div>
           {message && (
-            <p className="rounded-xl bg-muted px-3 py-2 text-sm text-muted-foreground">
+            <p
+              role="status"
+              className="rounded-xl bg-muted px-3 py-2 text-sm text-muted-foreground"
+            >
               {message}
             </p>
           )}
