@@ -1,0 +1,13 @@
+{
+  "project_ref": "wnsroqywgazcccppqrij",
+  "source": "Supabase dashboard UI, read-only inspection",
+  "custom_smtp_enabled": true,
+  "host": "smtp-relay.brevo.com",
+  "port": 587,
+  "sender_name": "CondoHub",
+  "password_stored_hidden": true,
+  "save_changes_disabled": true,
+  "user_confirmed_saved": true,
+  "credentials_recorded": false,
+  "actual_delivery_tested": false
+}
